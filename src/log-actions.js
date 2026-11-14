@@ -174,8 +174,23 @@ export function createLogViewerContent(text, {
                 body.append(details);
                 const rawDetails = make('details', 'vertex-paygo-log-json');
                 const rawSummary = make('summary', 'vertex-paygo-log-json-summary');
+                const copyRecordButton = iconButton('preview.copy_record', 'fa-copy', {
+                    'data-log-action': 'copy-record', 'data-log-line': String(record.lineNumber),
+                });
+                copyRecordButton.classList.add('vertex-paygo-log-copy-record');
                 rawSummary.append(make('i', 'fa-solid fa-angle-right vertex-paygo-log-disclosure', undefined, { 'aria-hidden': 'true' }),
-                    make('span', '', key('preview.raw_record')));
+                    make('span', '', key('preview.raw_record')), copyRecordButton);
+                listen(copyRecordButton, 'click', async event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    copyRecordButton.disabled = true;
+                    try {
+                        if (typeof clipboard?.writeText !== 'function') throw new Error('Clipboard unavailable');
+                        await clipboard.writeText(record.raw);
+                        showFeedback(key('preview.record_copied'));
+                    } catch { showFeedback(key('preview.copy_failed'), true); }
+                    finally { if (!disposed) copyRecordButton.disabled = false; }
+                }, true);
                 rawDetails.append(rawSummary);
                 let rawLoaded = false;
                 listen(rawDetails, 'toggle', () => {
@@ -254,7 +269,7 @@ export function createLogViewerContent(text, {
 }
 
 export async function showLogViewer(text, { context, documentRef = globalThis.document,
-    localize = createLocalizer(), title, description, emptyText, closeText = 'Close', ...options } = {}) {
+    localize = createLocalizer(), title, description, emptyText, closeText = localize('vertex_paygo.logs.close'), ...options } = {}) {
     let popup, theme;
     const dismiss = () => {
         if (typeof popup?.complete === 'function') void popup.complete(context?.POPUP_RESULT?.NEGATIVE ?? 0);

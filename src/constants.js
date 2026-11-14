@@ -49,9 +49,9 @@ export const SERVER_ROUTES = Object.freeze({
 export const HEALTH_TIMEOUT_MS = 5_000;
 export const LOG_TIMEOUT_MS = 5_000;
 export const MAX_LOG_RESPONSE_BYTES = 5 * 1024 * 1024;
-// Full service-account authentication may need an OAuth token exchange before
-// the ticket can be issued.
-export const PREPARE_TIMEOUT_MS = 30_000;
+// Allow service-account OAuth exchanges to complete on slower connections
+// before issuing the proxy ticket. This does not limit model generation.
+export const PREPARE_TIMEOUT_MS = 180_000;
 // A check clones both repositories before it can decide anything, and starting
 // an update only acknowledges a job that keeps running in the background.
 export const UPDATE_CHECK_TIMEOUT_MS = 120_000;

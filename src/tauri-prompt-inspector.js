@@ -2,7 +2,7 @@
 import { createPromptInspectorUi } from './prompt-inspector-ui.js';
 import { mountExtensionSettings } from './extension-settings.js';
 
-export const TAURI_PROMPT_INSPECTOR_NOTICE = '这些记录来自 TauriTavern 的全局模型日志，未关联到当前聊天，也没有提示词来源或构建阶段追踪。JSON 由宿主整理，媒体及模型私有续接状态可能被省略，不能用作逐字节网络请求证据。';
+export const TAURI_PROMPT_INSPECTOR_NOTICE = 'TauriTavern 全局模型日志，未关联当前聊天，未追踪提示词来源或构建阶段。JSON 由宿主整理，可能省略媒体与模型私有续接状态；无法核验逐字节网络请求。';
 const INDEX_LIMIT = 64;
 const MAX_RECORD_CODE_UNITS = 16 * 1024 * 1024;
 const positiveId = value => Number.isSafeInteger(value) && value > 0;
@@ -111,7 +111,7 @@ export function createTauriPromptInspectorController({ api, indexLimit = INDEX_L
             }
             if (raw.requestRaw.length > maxRecordCodeUnits) {
                 status = 'oversize'; error = { code: 'RECORD_TOO_LARGE',
-                    message: '宿主记录超过查看器内存上限，未保留截断副本。可在 TauriTavern 的开发日志面板查看。' };
+                    message: '记录超过查看器内存上限，未保留截断副本。请在 TauriTavern 开发日志面板查看。' };
                 emit(); return null;
             }
             const current = entries.get(id) ?? entry;
@@ -128,7 +128,7 @@ export function createTauriPromptInspectorController({ api, indexLimit = INDEX_L
         } catch {
             if (destroyed || !enabled || serial !== readSerial || selectedId !== id) return null;
             record = null; status = 'error'; error = { code: 'NATIVE_RECORD_UNAVAILABLE',
-                message: '宿主记录无法读取，可能已被清理。请刷新列表并重新选择；不会用日志预览代替请求正文。' }; emit(); return null;
+                message: '无法读取记录，可能已被清理。请刷新列表并重新选择；日志预览不包含完整请求正文。' }; emit(); return null;
         }
     }
     async function refresh({ reloadSelection = true } = {}) {
@@ -225,7 +225,7 @@ export function createTauriPromptInspector({ context, api, documentRef = globalT
             if (state.filters.model !== '' && !models.includes(state.filters.model)) models.push(state.filters.model);
             model.replaceChildren(option('', '全部模型'), ...models.map(value => option(JSON.stringify(value), value === null ? '模型未标注' : value)));
             model.value = state.filters.model === '' ? '' : JSON.stringify(state.filters.model);
-            record.replaceChildren(option('', '选择一条全局模型日志记录'), ...state.records.map(entry => {
+            record.replaceChildren(option('', '选择全局模型日志记录'), ...state.records.map(entry => {
                 const time = new Date(entry.timestampMs).toLocaleString('zh-CN', { hour12: false });
                 return option(String(entry.id), `#${entry.id} · ${time} · ${SOURCES.get(entry.source) ?? entry.source} · ${entry.model ?? '模型未标注'} · ${entry.ok ? '成功' : '失败'}`);
             }));
@@ -233,9 +233,9 @@ export function createTauriPromptInspector({ context, api, documentRef = globalT
             source.disabled = model.disabled = !state.supported || !state.enabled;
             record.disabled = !state.supported || !state.enabled || !state.records.length;
             refresh.disabled = !state.supported || !state.enabled || state.status === 'loading';
-            status.textContent = !state.supported ? '当前 TauriTavern 未提供原生请求日志读取接口，其他插件功能仍可使用。'
+            status.textContent = !state.supported ? '当前 TauriTavern 缺少原生请求日志读取接口；其他功能可正常使用。'
                 : state.error?.message || (state.status === 'loading' ? '正在读取原生日志…'
-                    : `${state.records.length} 条匹配记录。选择记录后点击上方查看按钮；列表覆盖全局模型请求。`);
+                    : `${state.records.length} 条匹配记录。选择后点击查看按钮；列表包含全局模型请求。`);
         };
         listen(source, 'change', () => controller.setFilters({ source: source.value, model: '' }));
         listen(model, 'change', () => controller.setFilters({ model: model.value === '' ? '' : JSON.parse(model.value) }));

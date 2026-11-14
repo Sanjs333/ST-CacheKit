@@ -6,14 +6,14 @@ import { createPromptInspectorDismissalStore } from './prompt-inspector-session.
 import { mountExtensionSettings } from './extension-settings.js';
 import { TAURI_REQUEST_STATE } from './tauri-transport.js';
 
-export const TAURI_FRONTEND_PROMPT_NOTICE = '查看当前聊天上一轮的提示词、工具说明和输出格式。记录位置与响应状态会分别标明；已保存的记录可在切回聊天或刷新后恢复。';
+export const TAURI_FRONTEND_PROMPT_NOTICE = '查看当前聊天上一轮提示词、工具说明和输出格式。记录位置与响应状态分别标注；保存后可在切换聊天或刷新页面时恢复。';
 const CHAT_ID = /^[A-Za-z0-9_-]{1,128}$/u;
 const AGENT_ERRORS = Object.freeze({
     AGENT_CHAT_SCOPE_UNAVAILABLE: '无法确认当前聊天的 Agent 运行身份。',
-    AGENT_PROMPT_UNAVAILABLE: '这轮 Agent 的初始输入暂时无法读取。',
-    AGENT_PROMPT_INCOMPLETE: '这轮 Agent 的初始输入不完整，没有展示截断内容。',
-    AGENT_PROMPT_INVALID: '这轮 Agent 的初始输入格式无法确认。',
-    AGENT_PROMPT_TOO_LARGE: '这轮 Agent 的初始输入超过查看上限。',
+    AGENT_PROMPT_UNAVAILABLE: '无法读取本次 Agent 初始输入。',
+    AGENT_PROMPT_INCOMPLETE: '本次 Agent 初始输入不完整，未显示截断内容。',
+    AGENT_PROMPT_INVALID: '无法确认本次 Agent 初始输入格式。',
+    AGENT_PROMPT_TOO_LARGE: '本次 Agent 初始输入超过查看上限。',
 });
 
 /** Observe a foreground chat's public settings event. Native global logs stay
@@ -180,7 +180,7 @@ export function createTauriFrontendInspectorController({ context, getContext = (
             const scopedAgentError = agentState.scope?.kind === 'chat' && agentState.scope.chatId === localChatId() ? agentState.error : null;
             let error = state.error ?? (scopedAgentError ? { ...scopedAgentError,
                 message: AGENT_ERRORS[scopedAgentError.code] ?? AGENT_ERRORS.AGENT_PROMPT_UNAVAILABLE } : null);
-            if (error && selected && !error.message?.includes('保留')) error = { ...error, message: (error.message ?? '这轮提示词暂时无法读取。') + ' 已保留此前的提示词。' };
+            if (error && selected && !error.message?.includes('保留')) error = { ...error, message: (error.message ?? '无法读取本次提示词。') + ' 已保留上一轮提示词。' };
             if (selectedAgent || (!selected && agentMode() && agentState.supported)) {
                 return { ...state, ...agentState, supported: !destroyed && (agentState.supported === true || Boolean(selected)), enabled,
                     status: dismissal.loading ? 'loading' : ['recording', 'pending'].includes(state.status) ? state.status : agentState.status,
@@ -188,7 +188,7 @@ export function createTauriFrontendInspectorController({ context, getContext = (
                     frontendAvailable: agentState.supported === true, backendAvailable: false, requiresHostPatch: false,
                     captureKind: 'frontend-messages', privacyMode: 'host-artifact', initialAssemblyOnly: true, generationMode: 'agent',
                     persistence: { status: 'host-artifact' }, restored: Boolean(selected), dismissalLoading: dismissal.loading,
-                    notice: '这是当前聊天上一轮 Agent 的初始组装提示词，来自该运行保存的输入快照。未记录运行中的后续模型轮次，服务商网络请求字节未核验。' };
+                    notice: '当前聊天上一轮 Agent 的初始组装提示词，来自已保存的输入快照。未记录后续模型轮次，未核验服务商网络请求字节。' };
             }
             return { ...state, supported: !destroyed && (state.supported && eventAvailable || Boolean(selected)),
                 record: selected, error, recordAvailable: Boolean(selected), status: dismissal.loading ? 'loading' : state.status,

@@ -18,7 +18,7 @@ export function createWorldInfoStabilityUi({ feature, migration, documentRef = g
     checkbox.type = 'checkbox'; checkbox.className = 'vertex-paygo-compact-switch'; checkbox.setAttribute('role', 'switch'); checkbox.title = '稳定世界书排序默认开启，可手动关闭';
     checkbox.id = 'vertex-paygo-worldinfo-stability-enabled';
     label.append(make('span', '稳定世界书排序'), checkbox);
-    const guidance = make('p', '在聊天补全（Vertex / AI Studio / 自定义 / OpenAI / Claude）中，对同一世界书、同排序号、同位置/深度/身份/出口配置且本轮已触发的条目进行重排。同组蓝灯在前；绿灯沿用上一轮发送顺序，新触发或内容变化者追加；未触发者不保留。');
+    const guidance = make('p', '适用于聊天补全（Vertex / AI Studio / 自定义 / OpenAI / Claude）。按世界书、排序号及位置/深度/身份/出口配置分组，仅重排已触发条目。同组蓝灯在前；绿灯沿用上一轮发送顺序，新增或内容变化的条目追加，不保留未触发条目的顺序。');
     guidance.id = 'vertex-paygo-worldinfo-stability-guidance';
     guidance.className = 'vertex-paygo-guidance';
     const status = make('p');
@@ -48,14 +48,14 @@ export function createWorldInfoStabilityUi({ feature, migration, documentRef = g
         copy.id = 'vertex-paygo-copy-' + owner;
         const onCopy = async () => {
             try { await clipboard.writeText(MACROS[owner]); copy.title = '已复制'; }
-            catch { copy.title = '复制不可用，请选择旁边的宏文本复制'; }
+            catch { copy.title = '复制失败，请手动选择宏文本复制'; }
         };
         const onSwitch = () => { migration?.setEnabled(owner, toggle.checked); render(); };
         copy.addEventListener('click', onCopy); toggle.addEventListener('change', onSwitch);
         cleanup.push(() => { copy.removeEventListener('click', onCopy); toggle.removeEventListener('change', onSwitch); });
         control.append(code, copy); row.append(toggleLabel, control); macroRows.append(row); controls.push({ owner, toggle, copy, nameLabel, name });
     }
-    const macroUsageHelp = '将对应宏放进预设，开启对应开关；同一种宏只放一次。';
+    const macroUsageHelp = '在预设中加入对应宏并启用开关；每种宏仅放置一次。';
     const macroHelp = make('small', macroUsageHelp);
     macroHelp.id = 'vertex-paygo-macro-guidance';
     macroHelp.className = 'vertex-paygo-guidance';
@@ -68,8 +68,8 @@ export function createWorldInfoStabilityUi({ feature, migration, documentRef = g
         const tauri = state.ordering === 'tauri-deterministic';
         const pluginRuntime = move?.mode === 'plugin-runtime';
         guidance.textContent = tauri
-            ? 'TauriTavern：在最终扫描结束后，仅重排同一世界书、同排序号、同位置/深度/身份/出口配置的已触发条目。同组蓝灯在前，蓝灯与绿灯各按 UID 固定排序；不保留上一轮发送顺序。'
-            : '在聊天补全（Vertex / AI Studio / 自定义 / OpenAI / Claude）中，对同一世界书、同排序号、同位置/深度/身份/出口配置且本轮已触发的条目进行重排。同组蓝灯在前；绿灯沿用上一轮发送顺序，新触发或内容变化者追加；未触发者不保留。';
+            ? 'TauriTavern：最终扫描后按世界书、排序号及位置/深度/身份/出口配置分组，仅重排已触发条目。同组蓝灯在前，蓝灯与绿灯分别按 UID 固定排序，不继承上一轮发送顺序。'
+            : '适用于聊天补全（Vertex / AI Studio / 自定义 / OpenAI / Claude）。按世界书、排序号及位置/深度/身份/出口配置分组，仅重排已触发条目。同组蓝灯在前；绿灯沿用上一轮发送顺序，新增或内容变化的条目追加，不保留未触发条目的顺序。';
         for (const { owner, toggle, copy, nameLabel, name } of controls) {
             toggle.checked = move?.enabled?.[owner] === true; toggle.disabled = move?.supported !== true;
             copy.disabled = tauri && move?.supported !== true;

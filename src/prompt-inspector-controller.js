@@ -32,13 +32,13 @@ function frontendPromptBody(data, model) {
     return raw;
 }
 const INFO = Object.freeze({
-    PUBLIC_EVENTS_UNAVAILABLE: '当前酒馆未提供聊天生成事件，提示词记录暂不可用。',
-    SERVER_UNAVAILABLE: '提示词记录接口不可用，请检查服务端版本和酒馆是否已重启。',
+    PUBLIC_EVENTS_UNAVAILABLE: '当前酒馆缺少聊天生成事件，无法记录提示词。',
+    SERVER_UNAVAILABLE: '提示词记录接口不可用，请检查后端版本并重启酒馆。',
     UNSUPPORTED_SCOPE: '仅支持当前聊天的聊天补全请求。',
-    RECORD_UNAVAILABLE: '暂时无法读取这次请求的记录；实际生成不受影响。',
-    CAPTURE_UNAVAILABLE: '这次请求未能启用记录；实际生成不受影响。',
-    RECORD_TOO_LARGE: '这次消息或请求记录超过查看上限，没有保存截断正文。',
-    RECORD_EXPIRED: '临时记录已过期，下一次正常发送会自动记录新的一轮。',
+    RECORD_UNAVAILABLE: '无法读取本次请求记录；生成不受影响。',
+    CAPTURE_UNAVAILABLE: '本次请求未启用记录；生成不受影响。',
+    RECORD_TOO_LARGE: '消息或请求记录超过查看上限，未保存截断正文。',
+    RECORD_EXPIRED: '临时记录已过期，下一次发送将自动记录。',
 });
 const kindFor = identifier => {
     if (['charDescription', 'charPersonality', 'scenario'].includes(identifier)) return 'character';

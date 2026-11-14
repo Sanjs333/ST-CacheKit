@@ -10,25 +10,25 @@ const MAX_MESSAGES = 512;
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 const MAX_WI_BYTES = 128 * 1024;
 const REASONS = Object.freeze({
-    PUBLIC_PROMPT_APIS_UNAVAILABLE: '当前酒馆未提供所需的公开提示词对象，宏搬迁暂不可用。',
-    AGENT_PROMPT_ASSEMBLY_UNAVAILABLE: '本轮 Agent 提示词未取得可搬迁的组装对象，相关内容保持原位。',
-    AGENT_PRIVATE_PROMPT_ASSEMBLY_UNAVAILABLE: '本轮 Agent 未取得可核验的初始组装结果，相关内容保持原位。',
-    FINAL_PROMPT_ASSEMBLY_UNMIGRATED: '最终提示词重新组装后仍含搬迁宏，相关内容未确认搬迁。',
-    WI_REGEX_UNSUPPORTED: '本轮未能逐条核对部分世界书的正则处理结果，该部分绿灯保持原位。',
-    WI_SOURCE_UNAVAILABLE: '本轮世界书来源不能完整确认，绿灯保持原位。',
-    WI_EXAMPLES_OR_OUTLETS_UNSUPPORTED: '本轮含尚未确认的世界书示例绿灯，只搬可确认的绿灯，其余保持原位。',
-    WI_OUTLET_SOURCE_UNAVAILABLE: '本轮部分世界书出口的实际展开位置未能确认，只搬迁已确认的绿灯，其余保持原位。',
-    SOURCE_RETAINED: '本轮有需要保留原生结构或无法核对的来源，只搬迁其余可确认的内容。',
-    DEPTH_SOURCE_UNAVAILABLE: '本轮 @D 聚合来源、位置或宏展开结果未能完整核对，@D／作者注释保持原位。',
-    SOURCE_CAPTURE_UNAVAILABLE: '本轮未取得预算筛选后的原生提示词对象，保持原位。',
-    SOURCE_LIMIT: '本轮来源超过处理上限，保持原位。',
-    WI_EXAMPLE_LIMIT: '本轮世界书示例超过搬迁上限，该部分保持原位。',
-    HOST_CHAT_CHANGED: '本轮提示词已被其他处理修改，宏搬迁保持原位。',
-    REBUILD_FALLBACK: '本轮重新计数或内容核验未通过，保持原位。',
+    PUBLIC_PROMPT_APIS_UNAVAILABLE: '缺少公开提示词对象，宏搬迁不可用。',
+    AGENT_PROMPT_ASSEMBLY_UNAVAILABLE: '未取得 Agent 组装对象，相关内容保留原位。',
+    AGENT_PRIVATE_PROMPT_ASSEMBLY_UNAVAILABLE: '未取得可核验的 Agent 初始组装结果，相关内容保留原位。',
+    FINAL_PROMPT_ASSEMBLY_UNMIGRATED: '最终组装结果仍含搬迁宏，未确认完成搬迁。',
+    WI_REGEX_UNSUPPORTED: '部分世界书正则结果无法逐条核验，相关绿灯保留原位。',
+    WI_SOURCE_UNAVAILABLE: '世界书来源未完整确认，绿灯保留原位。',
+    WI_EXAMPLES_OR_OUTLETS_UNSUPPORTED: '部分世界书示例未确认，仅搬迁已确认的绿灯。',
+    WI_OUTLET_SOURCE_UNAVAILABLE: '部分世界书出口位置未确认，仅搬迁已确认的绿灯。',
+    SOURCE_RETAINED: '部分来源需保留原生结构或无法核验，仅搬迁其余已确认内容。',
+    DEPTH_SOURCE_UNAVAILABLE: '@D 聚合来源、位置或宏展开结果未完整核验，@D／作者注释保留原位。',
+    SOURCE_CAPTURE_UNAVAILABLE: '未取得预算筛选后的原生提示词对象，相关内容保留原位。',
+    SOURCE_LIMIT: '来源超过处理上限，相关内容保留原位。',
+    WI_EXAMPLE_LIMIT: '世界书示例超过搬迁上限，相关内容保留原位。',
+    HOST_CHAT_CHANGED: '提示词已被其他处理修改，宏搬迁保留原位。',
+    REBUILD_FALLBACK: '重新计数或内容核验失败，相关内容保留原位。',
     SETTINGS_SAVE_FAILED: '宏搬迁设置保存失败，已恢复原设置。',
 });
 
-export const PLUGIN_MIGRATION_SCOPE = '绿灯支持可确认的世界书前／后段、直接及原生 if/else 内的出口和示例；动态正则使用逐条实际结果，蓝绿混合也可搬迁绿灯。示例保留原生消息身份和分隔符。@D／作者注释按已确认的原生聚合组整体搬迁并保留内部顺序。TT 独立预设、Session 和子任务的初始组装已接入。无法确认的内容保持原位。';
+export const PLUGIN_MIGRATION_SCOPE = '绿灯支持已确认的世界书前后段、出口及示例（含原生 if/else）；动态正则按逐条实际结果核验，支持蓝绿混合。示例保留原生消息身份与分隔符。@D／作者注释按已确认的原生聚合组整体搬迁，保留组内顺序。支持 TT 独立预设、Session 和子任务初始组装；无法核验的内容保留原位。';
 const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 const bytes = value => new TextEncoder().encode(typeof value === 'string' ? value : JSON.stringify(value)).length;
 const plainMessage = value => typeof value?.content === 'string' && !value.name && !value.tool_calls

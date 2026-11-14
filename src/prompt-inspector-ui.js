@@ -32,31 +32,31 @@ const categoryOf = source => {
 };
 const sourceLabel = source => describePromptSource(source).label;
 const WARNING_LABELS = new Map([
-    ['unknown-source-ranges', '部分正文暂时无法确认来自哪个预设、世界书条目或扩展。'],
-    ['provenance-trace-incomplete', '部分来源资料未收集到；已捕获的发送正文不受影响。'],
-    ['ambiguous-source-match', '同一段文字重复出现，暂时无法确定对应哪个来源或正文位置。'],
-    ['final-body-unavailable', '尚未捕获最终发送正文；不使用前端快照代替。'],
-    ['final-body-incomplete', '最终正文未完整确认。'],
-    ['malformed-request-json', '原始请求不是有效 JSON；按未知结构保留，仍可精确复制 raw。'],
-    ['unknown-request-shape', '请求形状未识别；不猜测消息或角色。'],
-    ['missing-message-role', '消息 role 缺失或为空；不猜测实际角色。'],
+    ['unknown-source-ranges', '部分正文来源未确认。'],
+    ['provenance-trace-incomplete', '部分来源信息缺失。'],
+    ['ambiguous-source-match', '重复文本无法唯一匹配来源或正文位置。'],
+    ['final-body-unavailable', '尚未捕获最终发送正文。'],
+    ['final-body-incomplete', '最终发送正文完整性未确认。'],
+    ['malformed-request-json', '请求 JSON 无效，可查看和复制原文。'],
+    ['unknown-request-shape', '未识别请求结构，可查看原始请求。'],
+    ['missing-message-role', '消息缺少角色标识。'],
     ['source-match-work-limit', '来源匹配达到计算上限；其余片段保留为未确认。'],
     ['stage-comparison-bounded', '阶段差异预览达到计算上限。'],
     ['compound-content-raw-backed', '部分内容含附加结构，可展开查看。'],
-    ['duplicate-or-reserved-stage-id', '部分阶段编号相同，查看器已自动区分；不影响发送正文。'],
+    ['duplicate-or-reserved-stage-id', '重复阶段编号已自动区分。'],
     ['invalid-trace-sources', '来源资料格式不完整。'],
     ['invalid-or-duplicate-source', '部分来源资料无效或编号重复，未用于正文定位。'],
     ['invalid-trace-stages', '构建阶段资料格式不完整。'],
-    ['invalid-trace-stage', '某个阶段缺少可读取的消息快照。'],
+    ['invalid-trace-stage', '部分阶段缺少消息快照。'],
     ['invalid-trace-events', '变化记录格式不完整。'],
-    ['unverified-trace-event', '有些变化未经核验，未作为已确认的改动显示。'],
+    ['unverified-trace-event', '部分变化未经核验。'],
     ['source-annotation-work-limit', '来源标注达到处理上限，其余内容仍按原文显示。'],
-    ['stage-comparison-count-limit', '构建阶段较多，只比较部分阶段；原始请求保持不变。'],
+    ['stage-comparison-count-limit', '阶段数量超过比较上限，部分阶段未比较。'],
     ['stage-comparison-unavailable', '部分阶段无法比较，仍可查看已记录的内容。'],
     ['record-unavailable', '暂无可读取的发送记录。'],
-    ['invalid-raw-request', '原始请求格式无效，无法确认为完整正文。'],
+    ['invalid-raw-request', '原始请求格式无效，正文完整性未确认。'],
     ['final-body-oversize', '请求超过临时记录上限，未保留完整正文。'],
-    ['raw-request-parse-limit', '请求较大，已停止结构解析；仍可查看和复制原始请求。'],
+    ['raw-request-parse-limit', '请求超过解析上限，可查看和复制原文。'],
 ]);
 const warningLabel = (value, recordName = '原始请求') => WARNING_LABELS.get(value)
     ?? (/^[a-z0-9]+(?:-[a-z0-9]+)+$/u.test(value) ? `部分内容无法按消息展示；可查看${recordName}。` : value);
@@ -66,13 +66,13 @@ const REQUEST_STATES = new Map([
     ['failed', '请求失败'], ['oversize', '超出记录上限'],
 ]);
 const CHANNELS = new Map([
-    ['custom', '自定义'], ['vertexai', '谷歌云'], ['makersuite', '谷歌 AI 工作室'],
+    ['custom', '自定义'], ['vertexai', 'Vertex AI'], ['makersuite', 'Google AI Studio'],
     ['openai', 'OpenAI'], ['claude', 'Claude'],
 ]);
 const TRANSPORTS = new Map([
-    ['native', '酒馆原生请求'], ['google-proxy', '谷歌代理请求'], ['google-gemini4', 'Gemini 4 请求'],
+    ['native', '酒馆原生请求'], ['google-proxy', 'Google 代理请求'], ['google-gemini4', 'Gemini 4 请求'],
     ['native-loopback-http', '酒馆原生请求（插件记录）'],
-    ['frontend', '前端发送消息观察'],
+    ['frontend', '前端消息记录'],
     ['tauri-frontend', 'Tauri 请求提交前'], ['tauri-agent-artifact', 'Agent 保存的初始输入'],
 ]);
 const STAGES = new Map([
@@ -131,7 +131,7 @@ function inspect(value, limit = 16000, recordName = '原始请求') {
                 if (seen.has(item)) return '[circular]';
                 seen.add(item);
             }
-            if (typeof item === 'string' && item.length > limit) return item.slice(0, limit) + `… [预览截短；${recordName}不变]`;
+            if (typeof item === 'string' && item.length > limit) return item.slice(0, limit) + `… [预览已截断，${recordName}未修改]`;
             return typeof item === 'bigint' ? String(item) : item;
         }, 2);
         return excerpt(result ?? 'null', limit);
@@ -190,14 +190,14 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
     const frontendLabel = tauriFrontend ? '上一轮提示词' : '前端发送消息';
     const viewerTitle = nativeLog ? 'Tauri 原生请求记录' : TITLE;
     const frontendRecordLabel = record => record?.metadata?.capturePhase === 'agent-initial-snapshot' ? 'Agent 初始提示词'
-        : record?.metadata?.capturePhase === 'tauri-dispatch' ? '交给 Tauri 前的请求'
+        : record?.metadata?.capturePhase === 'tauri-dispatch' ? '提交至 Tauri 前的请求'
             : record?.metadata?.capturePhase === 'settings-ready' ? '组装事件中的消息' : frontendLabel;
     const recordName = s => nativeLog ? '日志 JSON' : s?.frontend ? tauriFrontend ? '提示词 JSON' : '前端消息 JSON' : '原始请求';
     const requestState = (record, state) => {
         if (tauriFrontend) {
             if (record.metadata?.initialAssemblyOnly === true) return '已读取 Agent 初始组装记录';
             if (record.metadata?.capturePhase === 'settings-ready') return '组装消息已记录，发送未确认';
-            if (record.state === 'dispatched') return state.restored ? '已交给 Tauri（响应状态未更新）' : '已交给 Tauri，等待响应';
+            if (record.state === 'dispatched') return state.restored ? '已提交至 Tauri（响应状态未更新）' : '已提交至 Tauri，等待响应';
             if (record.state === 'responded') return 'Tauri 已返回 HTTP 响应';
             if (record.state === 'failed') return 'Tauri 请求失败';
         }
@@ -207,21 +207,21 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
     const displayStageLabel = (stage, s) => s?.frontend && stage?.id === 'frontend-request' ? frontendRecordLabel(s.record)
         : nativeLog && (stage?.originalId ?? stage?.id) === 'backend-final' ? '宿主请求 JSON 记录' : stageLabel(stage);
     const displayWarning = (code, s) => s?.frontend ? new Map([
-        ['malformed-request-json', '前端消息快照不是有效 JSON；仍可查看原文。'],
+        ['malformed-request-json', '前端消息 JSON 无效，可查看原文。'],
         ['unknown-request-shape', '前端消息结构未识别；可查看前端消息 JSON。'],
         ['invalid-raw-request', '没有可读取的前端消息快照。'],
         ['final-body-unavailable', '尚未记录前端发送消息。'],
         ['final-body-incomplete', '前端消息快照未完整读取。'],
-        ['raw-request-parse-limit', '消息较大，已停止结构解析；仍可查看前端消息 JSON。'],
+        ['raw-request-parse-limit', '消息超过解析上限，可查看前端消息 JSON。'],
     ]).get(code) ?? warningLabel(code, '前端消息 JSON') : nativeLog ? new Map([
-        ['malformed-request-json', '宿主记录不是有效 JSON；仍可查看和复制日志文本。'],
+        ['malformed-request-json', '日志 JSON 无效，可查看和复制原文。'],
         ['unknown-request-shape', '宿主日志的请求结构未识别，可查看日志 JSON。'],
         ['invalid-raw-request', '宿主没有返回可读取的日志正文。'],
         ['final-body-unavailable', '尚未读取宿主请求记录。'],
         ['final-body-incomplete', '宿主日志记录未完整读取。'],
         ['final-body-oversize', '宿主日志超过查看上限，未保留截断正文。'],
         ['record-unavailable', '暂无可读取的宿主请求记录。'],
-        ['raw-request-parse-limit', '记录较大，已停止结构解析；仍可查看和复制日志 JSON。'],
+        ['raw-request-parse-limit', '记录超过解析上限，可查看和复制日志 JSON。'],
     ]).get(code) ?? warningLabel(code, '日志 JSON') : warningLabel(code);
     const prefix = `vertex-paygo-pi-${++nextId}`;
     const make = (tag, name = '', value, attrs = {}) => {
@@ -275,7 +275,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             // No role/source labels, pretty-printing or normalization of raw bytes.
             await clipboard.writeText(value);
             notify(s, `已复制${label}。`);
-        } catch { notify(s, '复制不可用；可选择文本手动复制。', true); }
+        } catch { notify(s, '复制失败，请选择文本手动复制。', true); }
     };
     const button = (s, label, name, fn, dynamic = false) => {
         const icon = ACTION_ICONS.get(name);
@@ -337,9 +337,9 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         s.refresh.append(make('i', 'fa-solid fa-rotate-right', undefined, { 'aria-hidden': 'true' }));
         listen(s, s.refresh, 'click', () => action(s, 'refresh', () => controller.refresh()));
         s.clear = make('button', 'vertex-paygo-icon-button vertex-paygo-log-tool', undefined,
-            { type: 'button', title: nativeLog ? '释放本页所选日志的查看副本；宿主日志由 TauriTavern 保留。'
-                : tauriFrontend ? '清除当前聊天上一轮提示词及其保存副本；其他聊天不受影响。'
-                    : '清除当前聊天记录：同时删除当前聊天与连接的保存副本，不影响其他聊天。',
+            { type: 'button', title: nativeLog ? '释放查看副本，保留 TauriTavern 日志'
+                : tauriFrontend ? '清除当前聊天的提示词记录及保存副本'
+                    : '清除当前聊天及连接的提示词记录和保存副本',
                 'aria-label': nativeLog ? '释放本页查看副本' : '清除临时记录', 'data-pi-action': 'clear' });
         s.clear.append(make('i', 'fa-solid fa-eraser', undefined, { 'aria-hidden': 'true' }));
         listen(s, s.clear, 'click', () => action(s, 'clear', () => controller.clear()));
@@ -375,7 +375,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         }
         const tools = make('div', 'vertex-paygo-pi-tools');
         s.search = make('input', 'text_pole vertex-paygo-pi-search', undefined,
-            { type: 'search', placeholder: nativeLog ? '搜索日志中的文本或角色…' : '搜索实际文本、角色或来源…',
+            { type: 'search', placeholder: nativeLog ? '搜索文本或角色' : '搜索文本、角色或来源',
                 'aria-label': '搜索提示词', 'data-pi-search': '', autocomplete: 'off' });
         listen(s, s.search, 'input', () => { s.query = s.search.value; renderContent(s); });
         s.drawerButton = button(s, '来源目录', 'drawer', () => {
@@ -393,12 +393,10 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             updateFoldToggle(s);
         });
         s.foldIcon = s.foldToggle.children[0];
-        s.copyText = button(s, nativeLog ? '复制记录纯文本' : '复制本轮纯文本', 'copy-text', () => {
-            if (s.view) return copy(s, asArray(s.view.messages).map(messageText).join('\n\n'), '纯文本（不含媒体、角色或来源标签）');
+        s.copyText = button(s, '复制全部文本', 'copy-text', () => {
+            if (s.view) return copy(s, asArray(s.view.messages).map(messageText).join('\n\n'), '全部文本');
         });
-        s.copyText.setAttribute('title', nativeLog ? '只复制文本 parts；不含媒体、角色或来源标签；日志 JSON 可单独复制。'
-            : s.frontend ? '只复制前端消息中的文本 parts；前端消息 JSON 可单独复制。'
-            : '只复制文本 parts；不含媒体、角色或来源标签；不是原始请求。');
+        s.copyText.setAttribute('title', '复制全部文本，不含媒体、角色或来源标签');
         tools.append(s.search, s.drawerButton, s.foldToggle, s.copyText);
         s.chips = make('nav', 'vertex-paygo-pi-chips', undefined, { 'aria-label': '来源类别' });
         const layout = make('div', 'vertex-paygo-pi-layout'); s.layout = layout;
@@ -508,8 +506,8 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         const media = /image|audio|video|file|media/u.test(type);
         const tool = /tool|function/u.test(type);
         node.append(make('div', 'vertex-paygo-pi-part-title', `${media ? '▧' : tool ? '⌘' : '◇'} ${type} · 只读`));
-        node.append(make('p', 'vertex-paygo-pi-muted', media ? '媒体保持在原位置；不加载链接、不解码内联数据。'
-            : tool ? '工具数据仅供检查；不执行工具或其中的代码。' : '结构化 / 未识别内容；不猜测为普通文本。'));
+        node.append(make('p', 'vertex-paygo-pi-muted', media ? '仅查看媒体结构，不加载链接或解码内联数据。'
+            : tool ? '仅查看工具数据，不执行工具或代码。' : '结构化或未识别内容。'));
         const raw = part?.raw ?? part;
         if (typeof part?.text === 'string') node.append(textPart(s, part));
         if (media) {
@@ -520,19 +518,19 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             }
             if (Object.keys(safe).length) node.append(make('pre', 'vertex-paygo-pi-structure', inspectRecord(safe, s)));
             node.append(make('small', 'vertex-paygo-pi-muted', s.frontend
-                ? '前端保留的媒体信息见「前端消息 JSON」；服务商最终请求暂未捕获。' : nativeLog
-                ? '日志中保留的媒体信息见「日志 JSON」；宿主可能已省略内联数据。'
-                : '完整媒体描述及数据仅在高级原始请求中可见。'));
+                ? '媒体信息见「前端消息 JSON」，最终请求未捕获。' : nativeLog
+                ? '媒体信息见「日志 JSON」，宿主可能省略内联数据。'
+                : '完整媒体信息见「原始请求」。'));
         } else {
             const detail = make('details', 'vertex-paygo-pi-part-detail');
-            detail.append(make('summary', '', tool ? '查看工具名称 / 参数 / 结果' : '查看原有结构'));
+            detail.append(make('summary', '', tool ? '工具名称、参数与结果' : '原始结构'));
             detail.append(make('pre', 'vertex-paygo-pi-structure', inspectRecord(raw, s))); node.append(detail);
         }
         if (depth < 8) for (const nested of asArray(part?.parts)) node.append(renderPart(s, nested, depth + 1));
         else if (asArray(part?.parts).length) node.append(make('p', 'vertex-paygo-pi-muted', s.frontend
-            ? '嵌套预览达到上限；前端消息 JSON 仍可查看。' : nativeLog
-            ? '嵌套预览达到上限；日志 JSON 仍保留宿主返回的文本。'
-            : '嵌套预览达到安全上限；原始请求未改变。'));
+            ? '嵌套预览达到上限，可查看前端消息 JSON。' : nativeLog
+            ? '嵌套预览达到上限，可查看日志 JSON。'
+            : '嵌套预览达到上限，可查看原始请求。'));
         return node;
     }
     function sourceButton(s, id, dynamic = true) {
@@ -596,7 +594,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         };
         for (const id of refs.ids) labels.append(headerAction(sourceButton(s, id)));
         if (refs.unknown) labels.append(make('span', 'vertex-paygo-pi-unknown', nativeLog ? '来源未追踪' : '含来源待确认内容'));
-        const copyMessage = headerAction(button(s, '复制此条纯文本', 'copy-message', () => copy(s, messageText(message), '此条纯文本'), true));
+        const copyMessage = headerAction(button(s, '复制消息文本', 'copy-message', () => copy(s, messageText(message), '消息文本'), true));
         copyMessage.disabled = !plainText.length;
         heading.append(make('span', 'vertex-paygo-pi-order', String(index + 1).padStart(3, '0')),
             identity, labels, copyMessage,
@@ -608,9 +606,9 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         const body = make('div', 'vertex-paygo-pi-card-body');
         for (const part of asArray(message.parts)) body.append(renderPart(s, part));
         if (!asArray(message.parts).length) body.append(make('p', 'vertex-paygo-pi-muted', s.frontend
-            ? '此消息没有可识别的 parts；请查看前端消息 JSON。' : nativeLog
-            ? '此消息没有可识别的 parts；请查看日志 JSON。'
-            : '此消息没有可识别的 parts；请检查高级原始请求。'));
+            ? '未识别消息内容，请查看前端消息 JSON。' : nativeLog
+            ? '未识别消息内容，请查看日志 JSON。'
+            : '未识别消息内容，请查看原始请求。'));
         card.append(body); return card;
     }
     function matchesQuery(s, value) { return !s.query || value.toLocaleLowerCase().includes(s.queryLower); }
@@ -625,7 +623,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
     function emptyPanel(s, value) { s.panel.append(make('p', 'vertex-paygo-pi-no-results', value)); }
     function renderSources(s) {
         s.panel.append(make('h3', 'vertex-paygo-pi-section-title', s.selected ? `来源内容 · ${sourceLabel(s.sources.get(s.selected))}` : '来源与变化'),
-            make('p', 'vertex-paygo-pi-muted', s.selected ? '以下是你选择的来源内容，不是重新生成的提示词。' : '点击来源可查看内容；已定位的来源可跳转到发送正文。'));
+            make('p', 'vertex-paygo-pi-muted', s.selected ? '显示所选来源的记录内容。' : '选择来源可查看内容或定位正文。'));
         let count = 0;
         for (const source of s.sources.values()) {
             if (s.selected && source.id !== s.selected) continue;
@@ -645,7 +643,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             const locationIds = new Set(asArray(source.matches).filter(match => match.verified === true).map(match => match.messageId));
             const located = asArray(s.view.messages).map((message, index) => ({ message, index }))
                 .filter(({ message }) => locationIds.has(message.id));
-            if (!located.length) field(fields, '正文跳转', '暂不能自动跳转，可查看来源内容');
+            if (!located.length) field(fields, '正文跳转', '位置未确认');
             if (located.length) {
                 field(fields, '正文位置', located.map(({ index }) => `第 ${index + 1} 条消息`).join('、'));
                 const roles = [...new Set(located.map(({ message }) => ROLE_LABELS.get(message.role) ?? '未识别'))];
@@ -678,14 +676,14 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             if (typeof source.text === 'string') { const pre = make('div', 'vertex-paygo-pi-text'); markText(s, pre, source.text); body.append(pre); }
             if (typeof source.originalText === 'string' && source.originalText !== source.text) {
                 const original = make('details', 'vertex-paygo-pi-part-detail');
-                original.append(make('summary', '', '处理前的来源文字'), make('pre', 'vertex-paygo-pi-text', source.originalText));
+                original.append(make('summary', '', '处理前文本'), make('pre', 'vertex-paygo-pi-text', source.originalText));
                 body.append(original);
             }
-            if (located.length) body.append(button(s, '定位到发送正文', 'source-locate', () => navigateSource(s, source.id), true));
+            if (located.length) body.append(button(s, '定位正文', 'source-locate', () => navigateSource(s, source.id), true));
             card.append(body); s.panel.append(card);
         }
-        if (!count) emptyPanel(s, s.frontend ? `没有符合筛选条件的来源证据。未确认的文本仍在「${frontendLabel}」中。`
-            : '没有符合筛选条件的来源证据。未确认的文本仍在「最终发送」中。');
+        if (!count) emptyPanel(s, s.frontend ? `无匹配来源。消息文本见「${frontendLabel}」。`
+            : '无匹配来源。消息文本见「最终发送」。');
         if (s.selected) { s.counter.textContent = '查看所选来源'; return; }
         s.panel.append(make('h3', 'vertex-paygo-pi-section-title', '变化记录'));
         let observed = 0;
@@ -694,25 +692,24 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             if (s.query && !matchesQuery(s, `${text(change.label)}\n${text(change.kind)}\n${inspectRecord(change.before, s)}\n${inspectRecord(change.after, s)}`)) continue;
             observed++;
             const card = make('article', 'vertex-paygo-pi-change');
-            card.append(make('strong', '', text(change.label) || text(change.kind) || '已观察到的变化'), make('small', 'vertex-paygo-pi-muted', '已观测 · 仅已验证证据'));
+            card.append(make('strong', '', text(change.label) || text(change.kind) || '已记录变化'), make('small', 'vertex-paygo-pi-muted', '已核验'));
             for (const id of asArray(change.sourceIds)) if (s.sources.has(id)) card.append(sourceButton(s, id));
             if (change.before !== undefined || change.after !== undefined) {
-                const detail = make('details', 'vertex-paygo-pi-part-detail'); detail.append(make('summary', '', '查看前 / 后证据'));
+                const detail = make('details', 'vertex-paygo-pi-part-detail'); detail.append(make('summary', '', '变更前后记录'));
                 if (change.before !== undefined) detail.append(make('strong', '', '前'), make('pre', 'vertex-paygo-pi-structure', inspectRecord(change.before, s)));
                 if (change.after !== undefined) detail.append(make('strong', '', '后'), make('pre', 'vertex-paygo-pi-structure', inspectRecord(change.after, s)));
                 card.append(detail);
             }
             s.panel.append(card);
         }
-        if (!observed) s.panel.append(make('p', 'vertex-paygo-pi-muted', '没有已观察到的变化事件。阶段差异不自动归因于正则、预算或插件。'));
-        s.counter.textContent = `${count} 个来源 · ${observed} 个已观察事件`;
+        if (!observed) s.panel.append(make('p', 'vertex-paygo-pi-muted', '暂无已核验变化记录，阶段差异原因未确认。'));
+        s.counter.textContent = `${count} 个来源 · ${observed} 个变化事件`;
     }
     function renderComparison(s) {
         const stages = asArray(s.view.stages);
         s.panel.append(make('h3', 'vertex-paygo-pi-section-title', s.frontend ? '已观察阶段 → ' + frontendLabel : '构建阶段 → 实际发送正文'),
-            make('p', 'vertex-paygo-pi-muted', '按真实消息 / parts 顺序比较。文本差异是差异，不等于已核验的修改原因。'));
-        if (stages.length < 2) { emptyPanel(s, s.frontend ? `当前只有${frontendLabel}，没有可比较的前序快照。`
-            : '当前只有最终发送证据，没有可比较的前序快照。'); s.counter.textContent = `${stages.length} 个阶段`; return; }
+            make('p', 'vertex-paygo-pi-muted', '按消息和内容顺序比较，差异原因未经核验。'));
+        if (stages.length < 2) { emptyPanel(s, '缺少前序快照，无法比较阶段。'); s.counter.textContent = `${stages.length} 个阶段`; return; }
         if (!stages.some(stage => stage.id === s.before)) s.before = stages[0].id;
         if (!stages.some(stage => stage.id === s.after)) s.after = stages.at(-1).id;
         const selectors = make('div', 'vertex-paygo-pi-stage-controls');
@@ -737,7 +734,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         for (const [stage, label, scope] of [[before, '比较前', 'before'], [after, '比较后', 'after']]) {
             const column = make('section', 'vertex-paygo-pi-stage-column');
             column.append(make('h4', '', `${label} · ${displayStageLabel(stage, s)}`));
-            if (stage.complete === false) column.append(make('p', 'vertex-paygo-pi-muted', '此阶段证据不完整。'));
+            if (stage.complete === false) column.append(make('p', 'vertex-paygo-pi-muted', '阶段记录不完整。'));
 
             const messages = asArray(stage.messages);
             messages.forEach((message, index) => { if (visibleMessage(s, message)) column.append(messageCard(s, message, index, `${scope}-${stage.id}`)); });
@@ -750,12 +747,12 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
     }
     function renderDiffSummary(s, diff) {
         const summary = make('section', 'vertex-paygo-pi-diff-summary', undefined, { 'data-pi-diff': '' });
-        summary.append(make('p', '', !diff || diff.changed === null ? '差异计算不可用或未得出结论；下方仍显示真实阶段快照。'
-            : diff.changed ? '这两个快照存在差异（不推断修改原因）。' : '这两个快照相同。'));
-        if (diff?.bounded) summary.append(make('p', 'vertex-paygo-pi-muted', '差异预览已达到计算上限。下方阶段内容与原始请求仍保留实际顺序。'));
+        summary.append(make('p', '', !diff || diff.changed === null ? '差异未确认，下方显示阶段快照。'
+            : diff.changed ? '快照存在差异，原因未确认。' : '快照相同。'));
+        if (diff?.bounded) summary.append(make('p', 'vertex-paygo-pi-muted', '差异预览达到计算上限，阶段快照仍可查看。'));
 
         const changes = asArray(diff?.changes);
-        const labels = { 'role-changed': 'role 改变', 'messages-changed': '消息内容改变', 'messages-added': '新增消息', 'messages-removed': '移除消息', 'request-fields-changed': '请求参数改变', 'comparison-bounded': '比较达到上限（未得出结论）' };
+        const labels = { 'role-changed': '角色变更', 'messages-changed': '消息内容变更', 'messages-added': '新增消息', 'messages-removed': '移除消息', 'request-fields-changed': '请求参数变更', 'comparison-bounded': '比较达到上限，差异未确认' };
         for (const [index, entry] of changes.slice(0, 40).entries()) {
             const heading = make('div', 'vertex-paygo-pi-diff-heading');
             heading.append(make('strong', '', labels[entry.kind] ?? text(entry.kind)));
@@ -804,7 +801,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
                     card.append(make('strong', 'vertex-paygo-pi-part-title', text(tool?.name) || text(item?.type) || '工具声明'),
                         make('p', 'vertex-paygo-pi-muted', text(tool?.description) || '只读声明；不执行。'));
                     const schema = make('details', 'vertex-paygo-pi-part-detail');
-                    schema.append(make('summary', '', '原有工具结构'), make('pre', 'vertex-paygo-pi-structure', inspectRecord(item, s)));
+                    schema.append(make('summary', '', '原始工具结构'), make('pre', 'vertex-paygo-pi-structure', inspectRecord(item, s)));
                     card.append(schema); field.append(card);
                 }
             } else field.append(make('pre', 'vertex-paygo-pi-structure', inspectRecord(value, s)));
@@ -814,17 +811,17 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         return wrapper;
     }
     function renderRaw(s) {
-        s.panel.append(make('h3', 'vertex-paygo-pi-section-title', s.frontend ? recordName(s) : nativeLog ? '宿主请求 JSON 记录' : '高级 · 原始请求'),
+        s.panel.append(make('h3', 'vertex-paygo-pi-section-title', s.frontend ? recordName(s) : nativeLog ? '宿主请求 JSON 记录' : '原始请求'),
             make('p', 'vertex-paygo-pi-muted', s.frontend
                 ? s.record?.metadata?.initialAssemblyOnly === true
-                    ? '这是该 Agent 运行保存的初始输入，保留模型、消息和输入中实际存在的提示词字段。后续模型轮次未记录。'
-                    : '保留记录位置上的模型、消息、工具说明及输出格式等提示词字段。宿主之后仍可能转换内容，服务商最终请求未捕获。'
+                    ? 'Agent 初始输入快照，后续模型请求未记录。'
+                    : '前端请求快照，保留记录时的模型、消息、工具和输出格式。服务商最终请求未捕获。'
                 : nativeLog
-                ? '保留宿主返回的 JSON 文本。TauriTavern 可能已格式化 JSON、省略媒体及模型私有续接状态；这份记录不是逐字节网络请求证据。'
-                : '这是捕获的最终序列化请求，不是重建或美化的 JSON。复制不会加入标签；分享前请自行检查敏感内容。'));
+                ? '宿主提供的 JSON 记录可能省略媒体和续接状态，网络请求字节未经核验。'
+                : '最终序列化请求，复制保留原文和格式。分享前请检查敏感信息。'));
         const raw = typeof s.record?.rawRequest === 'string' ? s.record.rawRequest : null;
         const copyRaw = button(s, s.frontend ? '复制' + recordName(s) : nativeLog ? '复制日志 JSON' : '复制原始请求', 'copy-raw',
-            () => copy(s, raw, s.frontend ? recordName(s) : nativeLog ? '宿主日志 JSON（保留其格式）' : '精确原始请求（raw）'), true);
+            () => copy(s, raw, s.frontend ? recordName(s) : nativeLog ? '日志 JSON' : '原始请求'), true);
         copyRaw.disabled = raw === null; s.panel.append(copyRaw);
         s.panel.append(make('pre', 'vertex-paygo-pi-raw', raw ?? (s.frontend ? '未记录前端发送消息。' : nativeLog ? '未读取请求日志。' : '未捕获完整原始请求。'),
             { 'data-pi-raw': '', tabindex: '0' }));
@@ -836,7 +833,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         header.append(make('h3', 'vertex-paygo-pi-sidebar-heading', '来源目录'),
             button(s, '关闭来源目录', 'drawer-close', () => hideDrawer(s), true));
         const content = make('div', 'vertex-paygo-pi-sidebar-content');
-        content.append(make('p', 'vertex-paygo-pi-muted', '点击来源可查看内容；能定位时直接跳转正文。'));
+        content.append(make('p', 'vertex-paygo-pi-muted', '选择来源可查看内容或定位正文。'));
         s.sidebar.append(header, content);
         const groups = new Map();
         for (const source of s.sources.values()) {
@@ -872,8 +869,8 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         }
         if (!groups.has('unknown')) chip('unknown', '来源待确认');
         if (!groups.size) content.append(make('p', 'vertex-paygo-pi-muted', s.frontend
-            ? '没有来源证据。当前前端消息仍可检查；服务商最终请求暂未捕获。'
-            : '没有来源证据。最终请求仍可检查；不从当前预设重建。'));
+            ? '暂无来源信息，可查看前端消息。服务商最终请求未捕获。'
+            : '暂无来源信息，可查看已捕获的请求。'));
     }
     function renderContent(s) {
         if (!s.view || session !== s || disposed) return;
@@ -900,7 +897,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
                 : filtered ? '筛选视图 · 保留原发送序号' : '实际发送顺序'),
                 make('small', 'vertex-paygo-pi-muted', s.frontend ? frontendRecordLabel(s.record) + ' · 服务商最终请求未捕获'
                     : nativeLog ? '按宿主 JSON 展示 · 来源未追踪'
-                    : filtered ? '仅隐藏未匹配项 · 不分组、不改变发送顺序' : 'role / parts 原样 · 标签仅供查看'));
+                    : filtered ? '隐藏未匹配项，保留发送顺序' : '保留角色与内容顺序'));
             if (filtered) title.append(button(s, '清空筛选', 'filter-reset', () => {
                 s.query = ''; s.search.value = ''; s.category = 'all'; renderContent(s);
             }, true));
@@ -909,7 +906,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             messages.forEach((message, index) => { if (visibleMessage(s, message)) { count++; s.panel.append(messageCard(s, message, index)); } });
             if (!count) emptyPanel(s, messages.length ? '没有匹配结果。清空搜索或切换来源类别。'
                 : s.frontend ? '前端消息结构未识别，请查看前端消息 JSON。' : nativeLog ? '宿主日志的请求结构未识别，请查看日志 JSON。'
-                    : '请求形状未识别；不会把未知结构猜测为消息。请查看高级原始请求。');
+                    : '未识别请求结构，请查看原始请求。');
             const extra = requestFields(s, s.view.metadata?.requestFields, s.frontend ? 'frontend-request' : 'backend-final');
             if (extra) s.panel.append(extra);
             s.counter.textContent = `${count} / ${messages.length} 条消息 · ${filtered ? '筛选中（保留原顺序）'
@@ -943,29 +940,29 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             if (typeof record.metadata?.durationMs === 'number') field('耗时', `${record.metadata.durationMs} 毫秒`);
             if (typeof record.metadata?.stream === 'boolean') field('流式响应', record.metadata.stream ? '开启' : '关闭');
             field('API 地址', text(record.metadata?.endpoint));
-            field('日志正文', typeof record.rawRequest === 'string' ? '已取得宿主记录' : '未取得');
+            field('日志正文', typeof record.rawRequest === 'string' ? '已读取' : '未读取');
             field('正文格式', '宿主整理的 JSON', '媒体及模型私有续接状态可能被宿主省略，网络请求字节未经核验。');
-            field('来源与阶段', '原生日志未提供', '不从当前预设或聊天猜测记录来源。');
+            field('来源与阶段', '接口未提供', '当前预设和聊天无法确定日志来源。');
             field('查看副本', '仅保留本页内存', '释放查看副本不修改 TauriTavern 的日志。');
             return;
         }
         if (s.frontend) {
             field('记录范围', tauriFrontend ? (record.metadata?.initialAssemblyOnly === true ? '当前聊天上一轮 · ' : '当前聊天普通模式上一轮 · ')
-                + frontendRecordLabel(record) : '发送给酒馆后端的消息');
+                + frontendRecordLabel(record) : '提交至酒馆后端的消息');
             if (record.metadata?.capturePhase === 'settings-ready') field('发送状态', '未确认', '消息在公开组装事件中记录，之后仍可能继续处理。');
             if (record.metadata?.initialAssemblyOnly === true) {
                 field('Agent 运行', text(record.metadata.runId ?? record.runId));
                 field('覆盖范围', '该运行的初始组装提示词', '运行中的后续模型轮次未记录。');
             }
-            field('服务商最终请求', '暂未捕获', tauriFrontend ? 'Tauri 原生通道可能继续转换消息。' : '酒馆后端可能对消息进行后处理或转换。');
+            field('服务商最终请求', '未捕获', tauriFrontend ? 'Tauri 原生通道可能继续转换消息。' : '酒馆后端可能继续转换消息。');
         }
         field('渠道', record.source ? CHANNELS.get(record.source) ?? record.source : '');
         field('模型', text(record.model) || (record.metadata?.initialAssemblyOnly === true ? '输入快照未记录模型' : ''));
         if (record.metadata?.initialAssemblyOnly !== true) field(tauriFrontend ? '记录序号' : '发送序号', text(record.sequence));
         field(tauriFrontend ? '记录状态' : '请求状态', record.state ? requestState(record, state) : '',
-            tauriFrontend ? record.metadata?.initialAssemblyOnly === true ? '读取的是该运行保存的初始输入。'
+            tauriFrontend ? record.metadata?.initialAssemblyOnly === true ? '显示该运行保存的初始输入。'
                 : '响应状态指 Tauri HTTP 接口；服务商网络请求字节未经核验。'
-                : '已响应表示已收到服务端响应，不保证流式输出全部完成，也不代表缓存命中。');
+                : '已响应表示收到服务端响应，流式完成和缓存命中状态需单独确认。');
         for (const [key, label] of [['capturedAt', '记录时间'], ['dispatchAt', '发送时间'], ['responseAt', '响应时间'], ['expiresAt', '后台临时记录到期']]) {
             const value = record[key] ?? record.metadata?.[key];
             if (text(value)) {
@@ -977,9 +974,9 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         field('响应状态码', text(record.metadata?.httpStatus ?? record.metadata?.statusCode));
         if (typeof record.metadata?.durationMs === 'number') field('耗时', `${record.metadata.durationMs} 毫秒`);
         if (typeof record.metadata?.stream === 'boolean') field(tauriFrontend ? '前端流式设置' : '流式响应', record.metadata.stream ? '开启（逐段接收）' : '关闭（一次接收）',
-            tauriFrontend ? '这是前端事件中的设置，实际输出方式未确认。' : '流式响应会边生成边显示；关闭时等待完整响应。');
+            tauriFrontend ? '前端设置已记录，实际输出方式未确认。' : '流式模式逐段显示，非流式模式等待完整响应。');
         if (record.metadata?.transport) field(tauriFrontend ? '观测位置' : '发送方式', TRANSPORTS.get(record.metadata.transport) ?? '其他发送方式',
-            tauriFrontend ? '记录发生在进入 Tauri 原生通道之前。' : '指请求经过酒馆原生接口还是插件代理，与来源定位无关。');
+            tauriFrontend ? '记录位于 Tauri 原生通道提交前。' : '显示酒馆原生接口或插件代理的请求通道。');
         field(s.frontend ? '消息快照' : '发送正文', (s.frontend ? s.view?.metadata?.frontendMessagesComplete : s.view?.metadata?.bodyComplete) === true
             ? '完整记录' : '不完整 / 未确认');
         if (state.privacyMode === 'tab-session') {
@@ -987,12 +984,11 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
                 ? '按聊天保留，切回或刷新可恢复' : state.persistence?.status === 'loading' ? '正在恢复记录' : '本页临时查看');
         }
         if (state.privacyMode === 'memory-only') field('记录保留', '仅保留本页，刷新后清空');
-        if (state.privacyMode === 'host-artifact') field('记录保留', '由该 Agent 运行的工作区保存，刷新可重新读取');
+        if (state.privacyMode === 'host-artifact') field('记录保留', '保存于 Agent 工作区，刷新可恢复');
         field('来源收集', record.trace?.complete === true && state.sourceAvailable !== false ? '完整' : '部分未收集',
-            '收集发送时的预设、世界书、角色和扩展等来源资料；不完整不等于发送正文缺失。');
+            '来源包含预设、世界书、角色和扩展，完整性与发送正文分别判断。');
         field('正文来源定位', s.view?.metadata?.provenanceComplete === true ? '已确认' : '部分未确认',
-            s.frontend ? `将来源文字与${frontendLabel}核对。只有完全相同且能唯一定位时才标注。`
-                : '将来源文字与实际发送正文核对。只有完全相同且能唯一定位时才标注；重复或变化后的文字可能无法确认。');
+            '仅标注与正文完全相同且能唯一定位的来源文本。');
     }
     function render() {
         if (disposed) return;
@@ -1012,8 +1008,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
                 if (!tab.querySelector('i')) tab.textContent = label;
                 tab.setAttribute('aria-label', label); tab.setAttribute('title', label);
             }
-            s.copyText.setAttribute('title', s.frontend ? '只复制前端消息中的文本 parts；前端消息 JSON 可单独复制。'
-                : '只复制文本 parts；不含媒体、角色或来源标签；不是原始请求。');
+            s.copyText.setAttribute('title', '复制全部文本，不含媒体、角色或来源标签');
         }
         const blocked = !enabled || (!record && (!supported || BLOCKED.has(status))) || record?.state === 'oversize';
         s.refresh.disabled = Boolean(s.busy);
@@ -1045,30 +1040,30 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
                 s.view = s.cachedView;
             }
             catch { parseFailure = true; s.view = { messages: [], sources: [], stages: [], changes: [],
-                warnings: [s.frontend ? '无法解析前端消息快照；仍可查看前端消息 JSON。' : nativeLog ? '无法解析宿主记录；仍可查看日志 JSON。' : '无法解析记录；仍可查看精确原始请求。'] }; }
+                warnings: [s.frontend ? '消息解析失败，可查看前端消息 JSON。' : nativeLog ? '日志解析失败，可查看日志 JSON。' : '请求解析失败，可查看原始请求。'] }; }
         }
         const notices = [];
         if (s.frontend) notices.push(tauriFrontend
             ? record?.metadata?.initialAssemblyOnly === true ? state.notice
                 : record?.metadata?.capturePhase === 'tauri-dispatch'
-                    ? '这是当前聊天上一轮交给 Tauri 前的提示词，保留了消息、媒体、续接状态、工具说明和输出格式。响应状态指 Tauri HTTP 接口；服务商最终网络请求字节未核验。'
-                    : '这是公开组装事件中记录的消息，发送状态未确认。Tauri 原生通道之后可能继续转换内容，服务商最终请求暂未捕获。'
-            : '这里只记录进入酒馆后端前的消息。后端可能继续处理或转换内容；服务商最终请求暂未捕获。');
-        else if (!nativeLog && record?.trace?.reason === 'PUBLIC_EVENT_CAPTURE') notices.push('已捕获插件代理发出的最终请求；来源与构建阶段仅显示通过插件接口实际观察到的部分。');
-        if (nativeLog) notices.push(state.notice || '记录来自全局模型日志，未关联当前聊天；来源与构建阶段未追踪。JSON 由宿主整理，媒体和模型私有续接状态可能被省略。');
-        if (s.record && state.persistence?.evicted > 0) notices.push('标签页保存空间已满，已释放较早的其他聊天记录；当前记录已保留。');
+                    ? '当前聊天上一轮提交至 Tauri 前的提示词。响应状态来自 Tauri HTTP 接口，服务商最终请求字节未经核验。'
+                    : '消息记录于公开组装事件，发送状态未确认。Tauri 可能继续转换内容，服务商最终请求未捕获。'
+            : '酒馆后端提交前的消息快照。后端可能继续转换内容，服务商最终请求未捕获。');
+        else if (!nativeLog && record?.trace?.reason === 'PUBLIC_EVENT_CAPTURE') notices.push('已捕获插件代理的最终请求，来源和阶段信息仅包含实际记录部分。');
+        if (nativeLog) notices.push(state.notice || '全局模型日志未关联当前聊天，来源与阶段未记录。宿主可能省略媒体和续接状态。');
+        if (s.record && state.persistence?.evicted > 0) notices.push('标签页保存空间已满，较早聊天记录已释放，当前记录已保留。');
         if (s.record && ['unavailable', 'too-large', 'invalid'].includes(state.persistence?.status)) {
             notices.push(state.persistence.status === 'too-large'
-                ? '这轮记录较大，无法跨刷新保留；本页仍可查看和复制完整正文。'
-                : '浏览器未能保存这轮记录，刷新后可能丢失；本页仍可查看和复制。');
+                ? '记录超过保存上限，刷新后将丢失。本页仍可查看和复制。'
+                : '记录保存失败，刷新后可能丢失。本页仍可查看和复制。');
         }
-        if (s.record && state.persistence?.traceOmitted === true) notices.push('已保存完整提示词正文；来源和阶段较大，刷新后只恢复正文。');
-        if (state.generationMode === 'unknown') notices.push('暂未读取到 Tauri 的生成模式配置；已有记录仍按实际提交位置标明。');
+        if (s.record && state.persistence?.traceOmitted === true) notices.push('已保存提示词正文，来源和阶段信息超过保存上限。刷新后仅恢复正文。');
+        if (state.generationMode === 'unknown') notices.push('生成模式未确认，记录位置按实际提交阶段标注。');
         if (state.error) notices.push(text(state.error.message) || '读取临时记录失败。');
-        if (record?.state === 'failed' && !blocked) notices.push(s.frontend ? '前端请求未取得正常响应；消息快照不代表服务商已经接收。' : nativeLog ? '宿主将该请求记录标记为失败。'
-            : `实际请求失败${record.errorCode ? `（${text(record.errorCode)}）` : ''}。捕获的发送内容不代表响应成功。`);
+        if (record?.state === 'failed' && !blocked) notices.push(s.frontend ? '前端请求失败，服务商接收状态未确认。' : nativeLog ? '宿主记录的请求状态为失败。'
+            : `请求失败${record.errorCode ? `（${text(record.errorCode)}）` : ''}，发送内容已记录。`);
         if (s.record?.complete !== true) notices.push(s.record ? s.frontend ? '前端消息快照未完整读取。' : nativeLog ? '宿主日志记录未完整读取。'
-            : '最终请求证据不完整。不会将前端阶段冒充最终发送。' : '');
+            : '最终请求记录完整性未确认。' : '');
         const warnings = asArray(s.view?.warnings).filter(value => typeof value === 'string');
         notices.push(...warnings.filter(code => !SOURCE_WARNINGS.has(code) && !DETAIL_WARNINGS.has(code)
             && !(code === 'final-body-incomplete' && s.record?.complete !== true)).map(code => displayWarning(code, s)));
@@ -1084,27 +1079,27 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             updateFoldToggle(s);
             s.empty.replaceChildren(); s.counter.textContent = nativeLog ? '没有日志正文' : '没有保留的提示词';
             s.cachedRecord = null; s.cachedView = null; s.cachedKey = null; s.diffs.clear();
-            let title = '暂无上一轮提示词', description = '正常发送一轮后会自动记录，之后打开这里即可查看。无法补录安装前未记录的普通模式请求。';
+            let title = '暂无上一轮提示词', description = '发送后自动记录最近一次请求；未记录的普通模式请求无法补录。';
             if (nativeLog) {
-                title = '请选择一条原生请求记录'; description = '在插件日志页刷新列表并选择记录，再打开这里查看。列表包含全局模型请求，不能据此认定它属于当前聊天。';
+                title = '请选择原生请求记录'; description = '在日志页刷新并选择记录。列表来自全局模型日志，未关联当前聊天。';
                 if (!supported || status === 'unavailable') { title = '原生请求日志接口不可用'; description = '当前 TauriTavern 未提供宿主日志读取接口，其他插件功能仍可使用。'; }
                 else if (!enabled || status === 'disabled') { title = '日志读取已暂停'; description = '本页查看副本已释放，宿主日志仍由 TauriTavern 保留。'; }
-                else if (status === 'oversize') { title = '宿主记录超过查看上限'; description = '没有保留截断副本。可在 TauriTavern 的开发日志面板查看该记录。'; }
-                else if (status === 'error' || state.error) { title = '暂时无法读取宿主记录'; description = '可刷新列表并重新选择记录；生成流程不受影响。'; }
+                else if (status === 'oversize') { title = '宿主记录超过查看上限'; description = '未保留截断副本，请在 TauriTavern 开发日志面板查看。'; }
+                else if (status === 'error' || state.error) { title = '宿主记录读取失败'; description = '请刷新列表并重新选择记录。生成流程不受影响。'; }
             }
             else if (!supported || status === 'unavailable') {
-                title = state.initialAssemblyOnly && state.error ? '暂时无法读取上一轮 Agent 提示词' : '当前环境暂不能记录';
+                title = state.initialAssemblyOnly && state.error ? 'Agent 提示词读取失败' : '当前环境无法记录';
                 description = state.initialAssemblyOnly ? state.error?.message || '当前版本未提供 Agent 初始输入读取接口。'
-                    : '请选中支持的聊天补全连接。当前聊天或生成事件不可用时，不影响其他插件功能。';
+                    : '请选择支持的聊天补全连接，并确认当前聊天可用。';
             }
-            else if (!enabled || status === 'disabled') { title = '暂无上一轮发送记录'; description = '正常发送时自动临时记录最近一次请求，无需提前打开查看器。'; }
-            else if (status === 'expired' || status === 'expiry') { title = '临时记录已过期'; description = '过期内容已释放。下一次正常发送会自动记录；无法恢复旧内容。'; }
+            else if (!enabled || status === 'disabled') { title = '暂无上一轮发送记录'; description = '发送后自动记录最近一次请求。'; }
+            else if (status === 'expired' || status === 'expiry') { title = '临时记录已过期'; description = '过期内容无法恢复，下次发送后自动更新记录。'; }
             else if (status === 'oversize' || record?.state === 'oversize') {
                 title = s.frontend ? '前端消息超过查看上限' : '请求超过临时捕获上限';
                 description = s.frontend ? '未保留截断消息快照，生成流程不受影响。'
-                    : '没有保留完整请求，不能称为完整发送证据。生成不受影响；不会展示截断内容冒充全文。';
+                    : '完整请求未保存，生成流程不受影响。';
             }
-            else if (status === 'error' || state.error) { title = '暂时无法读取记录'; description = '读取失败不会影响生成。可刷新状态，或清除临时记录后重试。'; }
+            else if (status === 'error' || state.error) { title = '记录读取失败'; description = '请刷新状态或清除记录后重试。生成流程不受影响。'; }
             s.empty.append(make('span', 'vertex-paygo-pi-empty-symbol', '◎'), make('h3', '', title), make('p', '', description));
         }
     }

@@ -714,7 +714,7 @@ export function buildPromptInspectorView(record) {
     const finalId = frontendMessages ? 'frontend-request' : 'backend-final';
     const stages = traceStages(trace, sources, matchBudget, context, finalId);
     const frontendLabel = input.metadata?.capturePhase === 'agent-initial-snapshot' ? 'Agent 保存的初始组装提示词'
-        : input.metadata?.capturePhase === 'tauri-dispatch' ? '交给 Tauri 前的请求'
+        : input.metadata?.capturePhase === 'tauri-dispatch' ? '发送至 Tauri 前的请求'
             : input.metadata?.capturePhase === 'settings-ready' ? '公开组装事件中的消息' : '进入后端前的消息';
     stages.push({ id: finalId, label: frontendMessages ? frontendLabel : 'Final outbound request', messages: normalized.messages,
         notes: [], complete, origin: frontendMessages ? 'frontend' : 'backend', requestFields: normalized.requestFields, rawRequest });

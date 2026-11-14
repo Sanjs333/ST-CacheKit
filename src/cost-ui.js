@@ -21,6 +21,17 @@ function element(documentRef, tag, className, text) {
     return node;
 }
 
+function iconButton(documentRef, label, iconClass, className) {
+    const button = element(documentRef, 'button', `menu_button vertex-paygo-icon-button vertex-paygo-cost-icon-button ${className}`);
+    button.type = 'button';
+    button.title = label;
+    button.setAttribute('aria-label', label);
+    const icon = element(documentRef, 'i', `fa-solid ${iconClass}`);
+    icon.setAttribute('aria-hidden', 'true');
+    button.append(icon);
+    return button;
+}
+
 function money(value) {
     return `$${Number(value).toFixed(6)}`;
 }
@@ -55,7 +66,7 @@ function statusText(record, estimate) {
         usage_missing: '无用量数据', usage_incomplete: '用量数据不完整',
         cache_exceeds_prompt: '用量数据无效', provisioned_throughput: '预置吞吐量无法估算',
         unsupported_modality: '非文本模态无法估算', traffic_tier_mismatch: '计费层级不匹配',
-        price_missing: '未知价格，待配置', long_price_missing: '长上下文价格待配置',
+        price_missing: '价格未配置', long_price_missing: '长上下文价格未配置',
         tool_use: '含工具调用，仅部分估算', request_incomplete: '用量不完整，仅部分估算',
         tauri_normalized: 'TauriTavern 用量信息可能不完整，仅部分估算',
     };
@@ -66,7 +77,7 @@ function statusText(record, estimate) {
     if (record?.status === 'incomplete') return '用量不完整';
     if (estimate.status === 'estimated') return estimate.priceSource === 'current' ? '估算（按当前价格）' : '估算';
     if (estimate.status === 'partial') return estimate.priceSource === 'current' ? '部分估算（按当前价格）' : '部分估算';
-    if (estimate.status === 'unpriced') return '未知价格，待配置';
+    if (estimate.status === 'unpriced') return '价格未配置';
     return errorText(record?.errorCode) || '无法估算';
 }
 
@@ -98,7 +109,7 @@ export function createCostUi({
     menuItem.setAttribute('role', 'button');
     menuItem.setAttribute('tabindex', '0');
     const icon = element(documentRef, 'i', 'fa-solid fa-coins extensionsMenuExtensionButton');
-    const label = element(documentRef, 'span', '', '对话费用估算');
+    const label = element(documentRef, 'span', '', localize('vertex_paygo.costs.title'));
     menuItem.append(icon, label);
     menu.append(menuItem);
 
@@ -127,12 +138,18 @@ export function createCostUi({
 
     function buildContent(chatId) {
         const root = element(documentRef, 'section', 'vertex-paygo-cost');
-        root.append(element(documentRef, 'h3', '', '当前对话费用估算'));
+        root.setAttribute('aria-label', localize('vertex_paygo.costs.title'));
+        const header = element(documentRef, 'header', 'vertex-paygo-cost-header');
+        const heading = element(documentRef, 'h3', '', localize('vertex_paygo.costs.title'));
+        const toolbar = element(documentRef, 'div', 'vertex-paygo-cost-toolbar');
+        const refresh = iconButton(documentRef, localize('vertex_paygo.costs.refresh'), 'fa-rotate-right', 'vertex-paygo-cost-refresh');
+        const close = iconButton(documentRef, localize('vertex_paygo.costs.close'), 'fa-xmark', 'vertex-paygo-cost-close');
+        toolbar.append(refresh, close);
+        header.append(heading, toolbar);
         const summary = element(documentRef, 'div', 'vertex-paygo-cost-summary', '正在读取用量…');
-        const refresh = element(documentRef, 'button', 'menu_button vertex-paygo-cost-refresh', '刷新');
-        refresh.setAttribute('type', 'button');
+        summary.setAttribute('role', 'status');
         const tableWrap = element(documentRef, 'div', 'vertex-paygo-cost-table-wrap');
-        root.append(summary, refresh, tableWrap);
+        root.append(header, summary, tableWrap);
         if (coverageNotice) root.append(element(documentRef, 'p', 'vertex-paygo-cost-coverage-notice', coverageNotice));
 
         async function load() {
@@ -141,23 +158,23 @@ export function createCostUi({
             refresh.disabled = true;
             try {
                 if (!chatId) {
-                    summary.textContent = `尚无已采集请求；价格可在扩展设置的「${EXTENSION_DISPLAY_NAME}」→「价格」页配置。`;
+                    summary.textContent = `暂无用量记录。单价可在扩展设置「${EXTENSION_DISPLAY_NAME}」→「价格」中设置。`;
                     tableWrap.replaceChildren();
                     return;
                 }
                 if (getChatId?.() !== chatId) {
-                    summary.textContent = '当前对话已切换，请关闭并重新打开费用窗口。';
+                    summary.textContent = '对话已切换，请重新打开费用窗口。';
                     tableWrap.replaceChildren();
                     return;
                 }
                 const response = await serverClient.readUsage(chatId);
                 if (token !== renderToken || activeChatId !== chatId) return;
                 if (getChatId?.() !== chatId) {
-                    summary.textContent = '当前对话已切换，请关闭并重新打开费用窗口。';
+                    summary.textContent = '对话已切换，请重新打开费用窗口。';
                     tableWrap.replaceChildren();
                     return;
                 }
-                if (!response?.ok) throw new Error(response?.error || '读取失败');
+                if (!response?.ok) throw new Error(response?.error || '读取用量失败');
                 const records = (Array.isArray(response.records) ? response.records : [])
                     .filter(record => record?.chatId === chatId);
                 priceSettings.updateKeyLists(records);
@@ -168,11 +185,11 @@ export function createCostUi({
                 summary.textContent = `已估算小计 ${subtotal} · 最近一次 ${latestAmount} · ${result.requestCount} 次请求 · 缓存命中 ${result.cachedTokenCount} token · 待计价 ${result.unpricedCount} · 不完整 ${result.incompleteCount}`;
                 summary.textContent += ` · ${localize('vertex_paygo.costs.cache_hit_rate')} ${cacheRate(result.cacheHitRate)}`;
                 summary.title = localize('vertex_paygo.costs.cache_hit_rate_hint');
-                if (response.truncated) summary.append(element(documentRef, 'strong', 'vertex-paygo-cost-truncated', ' · 记录过多，当前仅显示部分账本'));
+                if (response.truncated) summary.append(element(documentRef, 'strong', 'vertex-paygo-cost-truncated', ' · 记录已截断，仅统计返回的部分账本'));
                 tableWrap.replaceChildren();
                 if (records.some(record => record.usageAccuracy === 'tauri-normalized')) {
                     tableWrap.append(element(documentRef, 'p', 'vertex-paygo-cost-tauri-warning',
-                        '由于 TauriTavern 非流式用量可能缺少思考 Token 等信息，估算可能不准确或偏低。'));
+                        'TauriTavern 的非流式用量可能缺少思考 Token 等信息，费用估算可能不完整或偏低。'));
                 }
                 const table = element(documentRef, 'table', 'vertex-paygo-cost-table');
                 const head = element(documentRef, 'thead');
@@ -181,7 +198,7 @@ export function createCostUi({
                 head.append(headRow);
                 const body = element(documentRef, 'tbody');
                 // Sum the entire ledger, but bound the number of live DOM rows.
-                if (result.details.length > 200) tableWrap.append(element(documentRef, 'p', '', '累计包含全部请求；下表显示最近 200 条。'));
+                if (result.details.length > 200) tableWrap.append(element(documentRef, 'p', '', '合计包含全部已读取请求，下表显示最近 200 条。'));
                 for (const { record, estimate } of result.details.slice(-200).reverse()) {
                     const row = element(documentRef, 'tr');
                     const count = name => {
@@ -219,7 +236,8 @@ export function createCostUi({
             priceSettings.renderPriceMeta();
             void load();
         });
-        return { root, load };
+        close.addEventListener('click', () => void popup?.complete?.(context.POPUP_RESULT?.CANCELLED ?? 0));
+        return { root, header, load };
     }
 
     async function open() {
@@ -230,10 +248,15 @@ export function createCostUi({
         const view = buildContent(activeChatId);
         activeView = view;
         popup = createExtensionDialog(view.root, {
-            okButton: '关闭', wide: true, large: true, leftAlign: true,
-            allowHorizontalScrolling: true, allowVerticalScrolling: true,
+            okButton: false, wide: true, large: true, leftAlign: true,
+            allowHorizontalScrolling: false, allowVerticalScrolling: true,
         });
         popup.dlg.classList.add('vertex-paygo-cost-dialog');
+        popup.buttonControls.hidden = true;
+        if (typeof popup.body?.insertBefore === 'function' && popup.content?.parentElement === popup.body) {
+            view.header.remove();
+            popup.body.insertBefore(view.header, popup.content);
+        }
         const theme = bindExtensionTheme(popup.dlg ?? view.root, { skipBg: false });
         void view.load();
         try {

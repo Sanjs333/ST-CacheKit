@@ -94,11 +94,11 @@ export function buildCacheDiagnostics(records) {
 }
 
 const comparisonText = value => {
-    if (value.status === 'no_previous') return '没有上一条记录可比较。';
-    if (value.status === 'different_epoch') return '服务进程已更换：指纹密钥不同，不跨重启比较。';
-    if (value.status === 'different_scope') return '模型、来源或地区不同，不据此比较缓存前缀。';
-    if (value.status !== 'compared') return '缺少完整结构摘要，暂不能比较。';
-    return `与上一条相比：系统指令${value.systemUnchanged ? '相同' : '不同'}，开头 ${value.commonBlocks} 个完整消息块相同（包含相同系统指令的文本共 ${value.commonTextChars} 个字符）；其他参数${value.sameParameters ? '相同' : '不同'}。${value.bounded ? '结构列表有截断，比较范围有限。' : ''}`;
+    if (value.status === 'no_previous') return '暂无上一条记录。';
+    if (value.status === 'different_epoch') return '指纹密钥不同或缺失，无法比较。';
+    if (value.status === 'different_scope') return '模型、来源或区域不同，无法比较。';
+    if (value.status !== 'compared') return '结构摘要不完整，无法比较。';
+    return `与上一条记录比较：系统指令${value.systemUnchanged ? '相同' : '不同'}；前 ${value.commonBlocks} 个完整消息块相同，共 ${value.commonTextChars} 个文本字符（含相同系统指令）；其他参数${value.sameParameters ? '相同' : '不同'}。${value.bounded ? '结构列表已截断，比较范围有限。' : ''}`;
 };
 
 export function createCacheDiagnosticsUi({ serverClient, getChatId, context, documentRef = globalThis.document }) {
@@ -120,7 +120,7 @@ export function createCacheDiagnosticsUi({ serverClient, getChatId, context, doc
     const listeners = [];
     function render() {
         if (destroyed) return;
-        statusNode.textContent = state === 'loading' ? '正在读取本地记录…' : state === 'error' ? '记录读取失败，打开查看器后可刷新重试。' : '';
+        statusNode.textContent = state === 'loading' ? '正在读取记录…' : state === 'error' ? '读取失败，请打开查看器后刷新重试。' : '';
         statusNode.hidden = !statusNode.textContent;
         session?.viewer.render({ views, selected, state, comparisonText });
     }
