@@ -287,7 +287,7 @@ function controlKind(node) {
         return ['button', 'submit', 'reset'].includes(node.type) ? 'button' : ['number', 'search'].includes(node.type) ? node.type : 'text';
     }
     if (node.matches('[role="tab"], [data-log-mode]')) return 'tab';
-    if (node.matches('.vertex-paygo-log-tool, .vertex-paygo-maintenance-refresh, .vertex-paygo-macro-copy, .vertex-paygo-message-cost-close, [data-pi-action="copy-message"], [data-pi-action="drawer-close"]')) return 'icon';
+    if (node.matches('.vertex-paygo-log-tool, .vertex-paygo-cost-icon-button, .vertex-paygo-maintenance-refresh, .vertex-paygo-macro-copy, .vertex-paygo-message-cost-close, [data-pi-action="copy-message"], [data-pi-action="drawer-close"]')) return 'icon';
     if (node.matches('.vertex-paygo-pi-chip, .vertex-paygo-pi-source-tag')) return 'chip';
     if (node.matches('.vertex-paygo-pi-source-row')) return 'row';
     return 'button';

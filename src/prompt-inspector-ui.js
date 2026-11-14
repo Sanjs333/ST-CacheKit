@@ -297,7 +297,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         s.sources?.clear(); s.diffs.clear();
         s.cachedRecord = null; s.cachedKey = null; s.cachedView = null;
         for (const node of [s.panel, s.sidebar, s.metadata, s.notice, s.chips, s.empty, s.feedback]) node?.replaceChildren();
-        s.targets.clear(); s.collapsed.clear();
+        s.targets.clear(); s.collapsed.clear(); s.expandedSources.clear(); s.sourcePreviews = [];
         launch.focus?.();
     }
     function close(s) {
@@ -313,8 +313,10 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
     }
     function buildSession() {
         const compactViewport = doc.defaultView?.matchMedia?.('(max-width: 680px)');
+        const sourceViewport = doc.defaultView?.matchMedia?.('(max-width: 680px), (hover: none) and (pointer: coarse)');
         const s = { listeners: [], dynamic: [], view: null, record: null, key: null,
             tab: 'final', query: '', category: 'all', selected: null, collapsed: new Set(),
+            expandedSources: new Set(), sourcePreviews: [], sourceGroupId: 0, sourceCompact: sourceViewport?.matches === true,
             frontend: !nativeLog && readState().captureKind === 'frontend-messages',
             targets: new Map(), busy: '', compact: compactViewport?.matches === true,
             drawer: !nativeLog && compactViewport?.matches !== true, before: '', after: '',
@@ -415,6 +417,10 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         s.counter = make('span', '', '', { 'data-pi-count': '' });
         s.feedback = make('span', '', '', { role: 'status', 'aria-live': 'polite', 'data-pi-feedback': '' });
         footer.append(s.counter, s.feedback); s.root.append(header, s.notice, s.empty, work, footer);
+        if (sourceViewport?.addEventListener) listen(s, sourceViewport, 'change', event => {
+            s.sourceCompact = event.matches;
+            for (const schedule of s.sourcePreviews) schedule();
+        });
         if (compactViewport?.addEventListener) listen(s, compactViewport, 'change', event => {
             s.compact = event.matches; s.drawer = !s.compact; updateDrawer(s);
             if (!s.drawer && s.sidebar.contains(doc.activeElement)) s.drawerButton.focus?.({ preventScroll: true });
@@ -548,6 +554,57 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         if (!refs) { refs = messageSources(message, s.sources); s.messageRefs.set(message, refs); }
         return refs;
     }
+    function sourcePreview(s, list, key, sourceCount, headerAction) {
+        const group = make('div', 'vertex-paygo-pi-message-sources');
+        list.id = `${prefix}-message-sources-${++s.sourceGroupId}`;
+        list.setAttribute('role', 'group'); list.setAttribute('aria-label', `消息来源，共 ${sourceCount} 项`);
+        const entries = [...list.children];
+        if (s.sourceCompact && s.query && entries.some(entry => entry.hasAttribute('data-pi-source') && matchesQuery(s, entry.textContent))) {
+            s.expandedSources.add(key);
+        }
+        const controls = make('div', 'vertex-paygo-pi-source-controls'); controls.hidden = true;
+        const toggle = headerAction(button(s, '展开全部来源', 'sources-toggle', () => {
+            s.expandedSources.has(key) ? s.expandedSources.delete(key) : s.expandedSources.add(key);
+            schedule();
+        }, true));
+        toggle.className = 'vertex-paygo-pi-source-tag vertex-paygo-pi-sources-toggle';
+        toggle.setAttribute('aria-controls', list.id);
+        controls.append(make('small', 'vertex-paygo-pi-muted', `来源 ${sourceCount} 项`), toggle);
+        group.append(list, controls);
+        const win = doc.defaultView;
+        let frame = 0, ended = false;
+        const update = () => {
+            frame = 0;
+            if (ended || !list.isConnected || !list.getClientRects().length) return;
+            // Measure whole chips at the available width; never clip a chip mid-row.
+            for (const entry of entries) entry.hidden = false;
+            let rowTop = null, rows = 0, cutoff = entries.length;
+            for (let index = 0; index < entries.length; index++) {
+                const top = entries[index].getBoundingClientRect().top;
+                if (rowTop === null || Math.abs(top - rowTop) > 1) { rowTop = top; rows++; }
+                if (rows > 2) { cutoff = index; break; }
+            }
+            const expanded = s.expandedSources.has(key);
+            if (s.sourceCompact && !expanded) for (const entry of entries.slice(cutoff)) entry.hidden = true;
+            controls.hidden = !s.sourceCompact || cutoff === entries.length;
+            const remaining = entries.slice(cutoff).filter(entry => entry.hasAttribute('data-pi-source')).length;
+            toggle.textContent = expanded ? '收起来源' : remaining ? `展开其余 ${remaining} 项` : '展开全部';
+            toggle.setAttribute('aria-expanded', String(expanded));
+            const label = `${expanded ? '收起' : '展开'}此消息的全部 ${sourceCount} 项来源`;
+            toggle.setAttribute('aria-label', label); toggle.title = label;
+        };
+        const schedule = () => {
+            if (!ended && !frame) frame = win.requestAnimationFrame(update);
+        };
+        const observer = typeof win.ResizeObserver === 'function' ? new win.ResizeObserver(schedule) : null;
+        observer?.observe(list);
+        for (const entry of entries) observer?.observe(entry);
+        if (!observer) listen(s, win, 'resize', schedule, true);
+        s.sourcePreviews.push(schedule);
+        s.dynamic.push(() => { ended = true; win.cancelAnimationFrame(frame); observer?.disconnect(); });
+        schedule();
+        return group;
+    }
     function navigateSource(s, id, { toggle = false } = {}) {
         if (!s.sources.has(id)) return;
         if (toggle && s.selected === id) {
@@ -564,7 +621,10 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         if (s.compact) s.drawer = false;
         const located = asArray(s.view?.messages).filter(message => sourceRefs(s, message).ids.has(id));
         s.tab = located.length ? 'final' : 'sources';
-        for (const message of located) s.collapsed.delete(`final-${message.id}`);
+        for (const message of located) {
+            s.collapsed.delete(`final-${message.id}`);
+            s.expandedSources.add(`final-${message.id}`);
+        }
         s.collapsed.delete(`source-${id}`);
         renderContent(s);
         s.panel.scrollTop = 0;
@@ -583,7 +643,6 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             { title: roleLabel, 'aria-label': roleLabel, ...(roleIcon ? { role: 'img' } : {}) });
         if (roleIcon) identity.append(make('i', `fa-solid ${roleIcon}`, undefined, { 'aria-hidden': 'true' }));
         const labels = make('span', 'vertex-paygo-pi-message-labels');
-        labels.append(make('code', 'vertex-paygo-pi-path', text(message.path)));
         const headerAction = node => {
             // Header controls act independently of the native summary disclosure.
             listen(s, node, 'click', event => { event.preventDefault(); event.stopPropagation?.(); }, true);
@@ -597,8 +656,9 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         const copyMessage = headerAction(button(s, '复制消息文本', 'copy-message', () => copy(s, messageText(message), '消息文本'), true));
         copyMessage.disabled = !plainText.length;
         heading.append(make('span', 'vertex-paygo-pi-order', String(index + 1).padStart(3, '0')),
-            identity, labels, copyMessage,
-            make('span', 'vertex-paygo-pi-excerpt', excerpt(plainText.replace(/\s+/gu, ' ')) || '结构化内容'));
+            identity, make('code', 'vertex-paygo-pi-path', text(message.path), { title: text(message.path) }), copyMessage);
+        if (labels.children.length) heading.append(sourcePreview(s, labels, `${scope}-${message.id}`, refs.ids.size, headerAction));
+        heading.append(make('span', 'vertex-paygo-pi-excerpt', excerpt(plainText.replace(/\s+/gu, ' ')) || '结构化内容'));
         const card = disclosure(s, `${scope}-${message.id}`, heading, 'vertex-paygo-pi-message');
         card.setAttribute('data-pi-message-id', text(message.id)); card.setAttribute('data-pi-role', text(message.role)); card.setAttribute('tabindex', '-1');
         if (refs.ids.has(s.selected)) card.setAttribute('data-selected', 'true');
@@ -877,7 +937,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         s.messageRefs = new WeakMap();
         s.queryLower = s.query.toLocaleLowerCase();
         const focusedSearch = doc.activeElement === s.search;
-        for (const dispose of s.dynamic) dispose(); s.dynamic = []; s.disclosures = []; s.targets.clear();
+        for (const dispose of s.dynamic) dispose(); s.dynamic = []; s.disclosures = []; s.targets.clear(); s.sourcePreviews = []; s.sourceGroupId = 0;
         s.panel.replaceChildren(); s.sidebar.replaceChildren(); s.chips.replaceChildren();
         for (const [id, tab] of s.tabs) { tab.setAttribute('aria-selected', String(id === s.tab)); tab.setAttribute('tabindex', id === s.tab ? '0' : '-1'); }
         s.panel.setAttribute('aria-labelledby', `${prefix}-tab-${s.tab}`);
@@ -1025,7 +1085,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         const key = !blocked && record ? `${text(record.id)}:${text(record.sequence)}:${text(record.chatId)}` : null;
         if (key !== s.key) {
             s.key = key; s.tab = 'final'; s.query = ''; s.search.value = ''; s.category = 'all';
-            s.selected = null; s.before = ''; s.after = ''; s.collapsed.clear(); s.feedback.textContent = '';
+            s.selected = null; s.before = ''; s.after = ''; s.collapsed.clear(); s.expandedSources.clear(); s.feedback.textContent = '';
         }
         s.record = blocked ? null : record; s.view = null;
         let parseFailure = false;
@@ -1074,7 +1134,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             s.sources = new Map(asArray(s.view.sources).filter(source => source && typeof source.id === 'string').map(source => [source.id, source]));
             if (parseFailure) s.tab = 'raw'; renderContent(s);
         } else {
-            for (const dispose of s.dynamic) dispose(); s.dynamic = []; s.disclosures = []; s.targets.clear();
+            for (const dispose of s.dynamic) dispose(); s.dynamic = []; s.disclosures = []; s.targets.clear(); s.sourcePreviews = [];
             s.panel.replaceChildren(); s.sidebar.replaceChildren(); s.chips.replaceChildren(); s.sources = new Map();
             updateFoldToggle(s);
             s.empty.replaceChildren(); s.counter.textContent = nativeLog ? '没有日志正文' : '没有保留的提示词';

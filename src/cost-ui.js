@@ -22,7 +22,7 @@ function element(documentRef, tag, className, text) {
 }
 
 function iconButton(documentRef, label, iconClass, className) {
-    const button = element(documentRef, 'button', `menu_button vertex-paygo-icon-button vertex-paygo-cost-icon-button ${className}`);
+    const button = element(documentRef, 'button', `vertex-paygo-icon-button vertex-paygo-cost-icon-button ${className}`);
     button.type = 'button';
     button.title = label;
     button.setAttribute('aria-label', label);
