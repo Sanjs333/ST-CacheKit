@@ -1,0 +1,16 @@
+{
+  "name": "st-cachekit",
+  "version": "1.0.0",
+  "description": "提示词缓存优化：SillyTavern、Luker 和 TauriTavern 的提示词整理、缓存诊断与费用统计扩展",
+  "private": true,
+  "license": "MPL-2.0",
+  "author": {
+    "name": "Mana Nekoha",
+    "url": "https://github.com/mananekoha114"
+  },
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sanjs333/ST-CacheKit.git"
+  }
+}

@@ -1,0 +1,2203 @@
+.vertex-paygo-cost { display: grid; gap: .8rem; min-width: min(52rem, 90vw); }
+.vertex-paygo-cost-summary { padding: .7rem; border: 1px solid var(--vertex-paygo-border, var(--SmartThemeBorderColor)); border-radius: 6px; overflow-wrap: anywhere; }
+.vertex-paygo-cost-refresh { width: max-content; justify-self: start; }
+.vertex-paygo-cost-table-wrap { overflow: auto; max-height: 45vh; -webkit-overflow-scrolling: touch; }
+.vertex-paygo-cost-table { width: 100%; border-collapse: collapse; font-size: .92em; }
+.vertex-paygo-cost-table th, .vertex-paygo-cost-table td { padding: .45rem; border-bottom: 1px solid var(--vertex-paygo-border, var(--SmartThemeBorderColor)); text-align: left; white-space: nowrap; }
+.vertex-paygo-cost-table th { position: sticky; top: 0; background: var(--vertex-paygo-background, var(--SmartThemeBlurTintColor, #222)); }
+
+.vertex-paygo-cost-price-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: .5rem; }
+.vertex-paygo-cost-pricing .vertex-paygo-cost-field { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: .65rem; min-width: 0; margin: 0; }
+.vertex-paygo-cost-pricing .vertex-paygo-cost-field > span:first-child { font-size: .9em; opacity: .85; white-space: nowrap; }
+.vertex-paygo-cost-pricing .vertex-paygo-cost-field .text_pole { width: 100%; min-width: 0; height: 32px; min-height: 32px; box-sizing: border-box; margin: 0; padding: 0 .45rem; }
+.vertex-paygo-cost-pricing :is(.vertex-paygo-cost-model-value, .vertex-paygo-cost-tier-value, .vertex-paygo-cost-source-value) { display: block; min-width: 0; line-height: 32px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; user-select: text; }
+.vertex-paygo-cost-pricing .vertex-paygo-cost-field[hidden],
+.vertex-paygo-cost-pricing .menu_button[hidden] { display: none !important; }
+.vertex-paygo-cost-price-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .5rem; grid-column: 1 / -1; }
+#vertex-paygo-pricing-settings .vertex-paygo-cost-price-actions > .menu_button { flex: 0 0 auto; width: auto; height: 30px; min-height: 30px; margin: 0; padding: 0 .75rem; }
+#vertex-paygo-pricing-settings .vertex-paygo-cost-price-actions > .vertex-paygo-icon-button { width: 30px; min-width: 30px; flex-basis: 30px; padding: 0; }
+.vertex-paygo-cost-price-meta { grid-column: 1 / -1; }
+.vertex-paygo-cost-price-meta,
+.vertex-paygo-cost-pricing-note { margin: 0; font-size: .9em; opacity: .85; }
+.vertex-paygo-cost-feedback { margin: 0; }
+.vertex-paygo-cost-feedback:empty { display: none; }
+.vertex-paygo-cost-feedback[data-state="error"] { color: var(--fullred); }
+.vertex-paygo-cost-feedback[data-state="success"] { color: var(--green); }
+.vertex-paygo-cost-menu { cursor: pointer; }
+@media (max-width: 700px) {
+    .vertex-paygo-cost { min-width: 0; }
+    .vertex-paygo-cost-price-form { grid-template-columns: 1fr; }
+}
+@media (max-width: 380px) {
+    .vertex-paygo-cost-price-form { grid-template-columns: 1fr; }
+}
+
+#vertex-paygo-pricing-settings [hidden] { display: none !important; }
+
+.vertex-paygo-message-cost-trigger {
+    display: block;
+    box-sizing: border-box;
+    width: fit-content;
+    max-width: 100%;
+    margin: .35rem 0 .15rem;
+    padding: .08rem .12rem;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: .75em;
+    line-height: 1.2;
+    letter-spacing: -.02em;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+    opacity: .72;
+}
+.vertex-paygo-message-cost-trigger[data-placement="footer"] {
+    max-width: calc(100% - var(--mes-right-spacing, 30px));
+    text-align: start;
+}
+.vertex-paygo-message-cost-trigger[data-placement="header"] {
+    display: inline-block;
+    flex: 0 1 auto;
+    min-width: 0;
+    margin: 0 .35rem;
+    vertical-align: baseline;
+}
+.vertex-paygo-message-cost-trigger[data-placement="avatar"] {
+    margin: .25rem auto 0;
+    font-size: .68rem;
+}
+.vertex-paygo-message-cost-trigger:hover,
+.vertex-paygo-message-cost-trigger:focus-visible { opacity: 1; }
+.vertex-paygo-message-cost-trigger:hover { text-decoration: underline; text-underline-offset: .12em; }
+.vertex-paygo-message-cost-trigger:focus-visible {
+    outline: 2px solid var(--vertex-paygo-accent, var(--SmartThemeQuoteColor, #8aa4ff));
+    outline-offset: 1px;
+}
+.vertex-paygo-message-cost-card {
+    position: fixed;
+    z-index: 10000;
+    box-sizing: border-box;
+    max-width: calc(100vw - 1rem);
+    max-height: calc(100vh - 1rem);
+    overflow: auto;
+    padding: 1rem;
+    border: 1px solid color-mix(in srgb, var(--vertex-paygo-foreground, var(--SmartThemeBodyColor)) 18%, transparent);
+    border-radius: 12px;
+    background: var(--vertex-paygo-background, var(--SmartThemeBlurTintColor, #17191d));
+    color: var(--vertex-paygo-foreground, var(--SmartThemeBodyColor, #eee));
+    box-shadow: 0 12px 36px rgb(0 0 0 / 45%);
+    font-size: .9rem;
+}
+.vertex-paygo-message-cost-card > header,
+.vertex-paygo-message-cost-card > footer { display: flex; justify-content: space-between; gap: .75rem; align-items: baseline; }
+.vertex-paygo-message-cost-heading { display: grid; gap: .12rem; }
+.vertex-paygo-message-cost-card > header span,
+.vertex-paygo-message-cost-card > footer { opacity: .68; font-size: .82em; }
+.vertex-paygo-message-cost-close {
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--vertex-paygo-foreground, var(--SmartThemeBodyColor)) 8%, transparent);
+    color: inherit;
+    font: inherit;
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.vertex-paygo-message-cost-close:hover,
+.vertex-paygo-message-cost-close:focus-visible { background: color-mix(in srgb, var(--vertex-paygo-foreground, var(--SmartThemeBodyColor)) 16%, transparent); }
+.vertex-paygo-message-cost-top { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; margin: .85rem 0; }
+.vertex-paygo-message-cost-metric { display: grid; align-content: start; gap: .18rem; min-width: 0; overflow-wrap: anywhere; }
+.vertex-paygo-message-cost-metric strong { font-variant-numeric: tabular-nums; }
+.vertex-paygo-message-cost-top .vertex-paygo-message-cost-metric {
+    padding: .65rem;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--vertex-paygo-foreground, var(--SmartThemeBodyColor)) 6%, transparent);
+}
+.vertex-paygo-message-cost-metric-label,
+.vertex-paygo-message-cost-metric small { opacity: .66; font-size: .78em; }
+.vertex-paygo-message-cost-amount {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: .2rem .75rem;
+    padding: .75rem 0;
+    border-block: 1px solid color-mix(in srgb, var(--vertex-paygo-foreground, var(--SmartThemeBodyColor)) 12%, transparent);
+}
+.vertex-paygo-message-cost-amount strong { font-size: 1.15em; }
+.vertex-paygo-message-cost-amount small { grid-column: 1 / -1; opacity: .7; }
+.vertex-paygo-message-cost-cache {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .55rem;
+    padding: .85rem 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--vertex-paygo-foreground, var(--SmartThemeBodyColor)) 12%, transparent);
+}
+.vertex-paygo-message-cost-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem 1rem; padding: .85rem 0; }
+.vertex-paygo-message-cost-card > footer { padding-top: .65rem; border-top: 1px solid color-mix(in srgb, var(--vertex-paygo-foreground, var(--SmartThemeBodyColor)) 12%, transparent); }
+@media (max-width: 600px) {
+    .vertex-paygo-message-cost-card { padding: .8rem; }
+    .vertex-paygo-message-cost-close { min-width: 2.5rem; min-height: 2.5rem; }
+    .vertex-paygo-message-cost-top { grid-template-columns: 1fr; }
+    .vertex-paygo-message-cost-details { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 380px) {
+    .vertex-paygo-message-cost-cache { grid-template-columns: 1fr; }
+    .vertex-paygo-message-cost-details { grid-template-columns: 1fr; }
+}
+
+/*
+ * Copyright (c) 2026 Mana Nekoha
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
+#vertex-paygo-settings.vertex-paygo-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0.5rem 0;
+    padding: 0;
+    min-width: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+#vertex-paygo-settings [hidden] { display: none !important; }
+#vertex-paygo-settings .vertex-paygo-row { min-width: 0; }
+#vertex-paygo-settings .vertex-paygo-row select { min-width: 0; }
+#vertex-paygo-settings :is(.vertex-paygo-guidance, .vertex-paygo-status) {
+    display: block;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+#vertex-paygo-settings :is(.vertex-paygo-tier-description, .vertex-paygo-tier-note) {
+    display: block;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+.vertex-paygo-tier-details { margin: 0; padding: 0; border: 0; background: transparent; }
+.vertex-paygo-tier-summary { cursor: pointer; font-size: 0.85rem; }
+.vertex-paygo-tier-guidance-content { padding-top: 0.35rem; }
+.vertex-paygo-tier-guidance-content > small { display: block; margin: 0; overflow-wrap: anywhere; }
+
+:is(.vertex-paygo-settings, .vertex-paygo-shell) .vertex-paygo-status--warning {
+    color: var(--vertex-paygo-warning, var(--warning-color, #e7b55e));
+}
+
+:is(.vertex-paygo-settings, .vertex-paygo-shell) .vertex-paygo-status--error,
+.vertex-paygo-settings[data-server-status="unavailable"] :is(.vertex-paygo-server-status, .vertex-paygo-general-server-status) {
+    color: var(--vertex-paygo-error, var(--error-color, #ef7777));
+}
+
+.vertex-paygo-settings[data-server-status="ready"] :is(.vertex-paygo-server-status, .vertex-paygo-general-server-status) {
+    color: var(--vertex-paygo-success, var(--success-color, #72d49b));
+}
+
+.vertex-paygo-shell {
+    --vertex-paygo-gap: 0.75rem;
+    --vertex-paygo-radius: 8px;
+    --vertex-paygo-control-height: 2.25rem;
+    --vertex-paygo-card: transparent;
+
+    --vertex-paygo-outline: color-mix(in srgb, var(--vertex-paygo-foreground, var(--SmartThemeBodyColor, #eee)) 16%, transparent);
+    --vertex-paygo-accent: var(--SmartThemeQuoteColor, #8aa4ff);
+    min-width: 0;
+}
+
+.vertex-paygo-shell [hidden] {
+    display: none !important;
+}
+
+#vertex-paygo-extension-settings-content:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vertex-paygo-gap);
+    min-width: 0;
+    padding: 0.5rem 0.15rem 0.25rem;
+    color: var(--vertex-paygo-foreground, var(--SmartThemeBodyColor, #eee));
+    line-height: 1.5;
+    text-shadow: none;
+    overflow-wrap: anywhere;
+}
+
+.vertex-paygo-tabs {
+    position: static;
+    display: flex;
+    align-self: flex-start;
+    flex-wrap: wrap;
+    flex: 0 0 auto;
+    width: max-content;
+    max-width: 100%;
+    gap: 0.25rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none;
+}
+
+.vertex-paygo-tab {
+    box-sizing: border-box;
+    display: inline-flex;
+    flex: 0 1 auto;
+    width: auto;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    min-width: 0;
+    height: 28px;
+    min-height: 28px;
+    margin: 0;
+    padding: 0 0.55rem;
+    border: 1px solid var(--vertex-paygo-outline);
+    border-radius: 5px;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--vertex-paygo-foreground, var(--SmartThemeBodyColor, #eee));
+    font-family: inherit;
+    font-size: 0.82rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: border-color 0.15s ease, opacity 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.vertex-paygo-tab:hover {
+    opacity: 1;
+    border-color: var(--vertex-paygo-border, var(--SmartThemeBorderColor, #888));
+}
+
+.vertex-paygo-tab[aria-selected="true"] {
+    opacity: 1;
+    font-weight: 600;
+    border-color: var(--vertex-paygo-accent);
+}
+
+.vertex-paygo-tab:focus-visible {
+    outline: 2px solid var(--vertex-paygo-accent);
+    outline-offset: 1px;
+}
+
+.vertex-paygo-tab-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Transparent settings surfaces (regression section boundary). */
+#vertex-paygo-extension-settings,
+#vertex-paygo-extension-settings-content,
+#vertex-paygo-extension-settings :is(.vertex-paygo-panel, .vertex-paygo-group, .vertex-paygo-cost-pricing),
+#vertex-paygo-maintenance-group .vertex-paygo-general-server-row {
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none;
+}
+
+.vertex-paygo-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vertex-paygo-gap);
+    min-width: 0;
+}
+
+.vertex-paygo-shell :is(#vertex-paygo-general-settings, #vertex-paygo-settings) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vertex-paygo-gap);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.vertex-paygo-shell :is(.vertex-paygo-group, .vertex-paygo-cost-pricing) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.75rem;
+    border: 1px solid var(--vertex-paygo-outline) !important;
+    border-radius: var(--vertex-paygo-radius);
+    background: transparent;
+}
+
+.vertex-paygo-shell :is(#vertex-paygo-display-group, #vertex-paygo-maintenance-group) {
+    padding: 0;
+    border: 0 !important;
+    border-radius: 0;
+}
+
+.vertex-paygo-shell .vertex-paygo-group-title {
+    margin: 0;
+    font-size: 1em;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.vertex-paygo-shell :is(.vertex-paygo-guidance, .vertex-paygo-status, .vertex-paygo-general-server-status) {
+    display: block;
+    min-width: 0;
+    font-size: 0.9em;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.vertex-paygo-shell .menu_button {
+
+    box-sizing: border-box;
+    display: inline-flex;
+    flex: 0 1 auto;
+    align-items: center;
+    justify-content: center;
+    width: max-content;
+    max-width: 100%;
+    min-width: 0;
+    min-height: var(--vertex-paygo-control-height);
+    margin: 0;
+    padding: 0.4rem 0.75rem;
+    font: inherit;
+    line-height: 1.35;
+    text-align: center;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: break-word;
+}
+
+.vertex-paygo-shell .menu_button:disabled {
+    opacity: 0.6;
+    filter: none;
+    cursor: not-allowed;
+}
+
+.vertex-paygo-shell :is(select, textarea, input:not([type="checkbox"], [type="radio"])) {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: var(--vertex-paygo-control-height);
+    margin: 0;
+}
+
+.vertex-paygo-shell :is(.checkbox_label) {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5em;
+    margin: 0;
+}
+
+.vertex-paygo-shell :is(.vertex-paygo-log-actions, .vertex-paygo-update-row, .vertex-paygo-general-server-row,
+    .vertex-paygo-tauri-scope) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.vertex-paygo-shell .vertex-paygo-general-server-status {
+    flex: 1 1 12rem;
+}
+
+.vertex-paygo-shell :is(.vertex-paygo-update-notice, .vertex-paygo-update-status) {
+    flex-basis: 100%;
+    min-width: 0;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.vertex-paygo-shell .vertex-paygo-update-status {
+
+    white-space: pre-line;
+}
+
+.vertex-paygo-shell .vertex-paygo-update-status:empty {
+    display: none;
+}
+
+.vertex-paygo-shell .vertex-paygo-tauri-scope > select {
+    flex: 1 1 12rem;
+    width: auto;
+}
+
+.vertex-paygo-shell .vertex-paygo-message-cost-setting {
+    margin: 0;
+}
+
+@media (pointer: coarse) {
+    .vertex-paygo-shell {
+        --vertex-paygo-control-height: 2.75rem;
+    }
+
+    .vertex-paygo-shell :is(select, textarea, input:not([type="checkbox"], [type="radio"])) {
+        font-size: max(16px, 1em);
+    }
+
+    .vertex-paygo-shell :is(.checkbox_label) {
+        min-height: var(--vertex-paygo-control-height);
+    }
+
+    .vertex-paygo-shell :is(.checkbox_label) input[type="checkbox"] {
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+}
+
+@media (max-width: 1000px) {
+    .vertex-paygo-shell {
+        --vertex-paygo-gap: 0.65rem;
+    }
+
+    .vertex-paygo-shell :is(.vertex-paygo-group, .vertex-paygo-cost-pricing) {
+        padding: 0.65rem;
+    }
+}
+
+@media (max-width: 480px) {
+
+    .vertex-paygo-tab { padding-inline: 0.45rem; }
+
+    .vertex-paygo-shell :is(.vertex-paygo-log-actions, .vertex-paygo-update-row, .vertex-paygo-cost-price-actions) > .menu_button:not(.vertex-paygo-icon-button) {
+        flex: 1 1 8rem;
+        width: auto;
+    }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vertex-paygo-tab {
+        transition: none;
+    }
+}
+
+#vertex-paygo-maintenance-group .vertex-paygo-general-server-row {
+    flex-wrap: nowrap;
+    padding: 0;
+    border: 0 !important;
+    border-radius: 0;
+    background: var(--vertex-paygo-card);
+}
+
+#vertex-paygo-maintenance-group .vertex-paygo-general-server-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9em;
+}
+
+#vertex-paygo-maintenance-group .vertex-paygo-general-server-status::before {
+    content: '';
+    width: 0.45rem;
+    height: 0.45rem;
+    flex: 0 0 0.45rem;
+    border-radius: 50%;
+    background: var(--vertex-paygo-border, var(--SmartThemeBorderColor, #888));
+}
+
+#vertex-paygo-general-settings[data-server-status="ready"] .vertex-paygo-general-server-status::before {
+    background: #6bb592;
+}
+
+#vertex-paygo-general-settings[data-server-status="unavailable"] .vertex-paygo-general-server-status::before {
+    background: #ce8585;
+}
+
+:is(#vertex-paygo-log-actions, #vertex-paygo-prompt-inspector-actions, #vertex-paygo-cache-diagnostics-actions) {
+    display: flex;
+    align-items: center;
+    min-height: 32px;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: 0.75rem;
+    padding: 0.1rem 0;
+}
+
+:is(#vertex-paygo-log-actions, #vertex-paygo-prompt-inspector-actions, #vertex-paygo-cache-diagnostics-actions) > .vertex-paygo-action-label {
+    display: flex;
+    align-items: center;
+    align-self: center;
+    min-height: 32px;
+}
+
+.vertex-paygo-action-label {
+    margin: 0;
+    min-width: 0;
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
+.vertex-paygo-log-tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex: 0 0 auto;
+}
+
+.vertex-paygo-shell .menu_button.vertex-paygo-icon-button {
+    width: var(--vertex-paygo-control-height, 2.25rem);
+    min-width: var(--vertex-paygo-control-height, 2.25rem);
+    flex: 0 0 var(--vertex-paygo-control-height, 2.25rem);
+    padding: 0;
+    white-space: nowrap;
+}
+
+.vertex-paygo-shell .vertex-paygo-icon-button:focus-visible {
+    outline: 2px solid var(--vertex-paygo-accent, currentColor);
+    outline-offset: 2px;
+}
+
+#vertex-paygo-maintenance-group [hidden] { display: none !important; }
+
+#vertex-paygo-maintenance-group .vertex-paygo-maintenance-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    flex: 0 0 auto;
+    margin-left: auto;
+    gap: 0.35rem;
+}
+
+#vertex-paygo-maintenance-group .vertex-paygo-maintenance-log-buttons {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 0.25rem;
+}
+
+#vertex-paygo-maintenance-group .vertex-paygo-maintenance-actions .menu_button {
+    box-sizing: border-box;
+    width: auto;
+    min-width: 0;
+    height: 30px;
+    min-height: 30px;
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 0 0.5rem;
+    border-radius: 5px;
+    font-size: 0.82rem;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+#vertex-paygo-maintenance-group .vertex-paygo-maintenance-actions .vertex-paygo-icon-button {
+    width: 30px;
+    min-width: 30px;
+    flex: 0 0 30px;
+    padding: 0;
+}
+
+#vertex-paygo-maintenance-group .vertex-paygo-maintenance-refresh,
+#vertex-paygo-maintenance-group .vertex-paygo-maintenance-refresh:hover,
+#vertex-paygo-maintenance-group .vertex-paygo-maintenance-refresh:active,
+#vertex-paygo-maintenance-group .vertex-paygo-maintenance-refresh:focus {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    min-height: 30px;
+    flex: 0 0 30px;
+    margin: 0;
+    padding: 0;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0;
+    color: inherit;
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.65;
+    filter: none;
+}
+
+#vertex-paygo-maintenance-group .vertex-paygo-maintenance-refresh:hover,
+#vertex-paygo-maintenance-group .vertex-paygo-maintenance-refresh:focus-visible { opacity: 1; }
+#vertex-paygo-maintenance-group .vertex-paygo-maintenance-refresh:disabled { opacity: 0.35; cursor: wait; }
+#vertex-paygo-maintenance-group .vertex-paygo-maintenance-actions .menu_button:focus-visible {
+    outline: 2px solid var(--vertex-paygo-accent, currentColor);
+    outline-offset: 2px;
+}
+
+#vertex-paygo-general-settings .vertex-paygo-general-server-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 30px;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 30px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+#vertex-paygo-general-settings .vertex-paygo-general-server-status {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+#vertex-paygo-general-settings .vertex-paygo-general-server-status::before {
+    content: '';
+    width: 0.4rem;
+    height: 0.4rem;
+    flex: 0 0 0.4rem;
+    border-radius: 50%;
+    background: var(--vertex-paygo-border, var(--SmartThemeBorderColor, #888));
+}
+
+#vertex-paygo-general-settings[data-server-status="ready"] .vertex-paygo-general-server-status::before { background: #6bb592; }
+#vertex-paygo-general-settings[data-server-status="unavailable"] .vertex-paygo-general-server-status::before { background: #ce8585; }
+
+.vertex-paygo-component-versions {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    opacity: 0.7;
+}
+
+.vertex-paygo-shell .vertex-paygo-display-setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    min-width: 0;
+    min-height: 32px;
+}
+
+.vertex-paygo-display-setting-row > label,
+:is(#vertex-paygo-general-settings, #vertex-paygo-log-settings, #vertex-paygo-prompt-inspector-settings, #vertex-paygo-cache-diagnostics) .vertex-paygo-action-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 400;
+    line-height: 1.35;
+}
+
+.vertex-paygo-shell .vertex-paygo-display-setting-row > select,
+.vertex-paygo-shell .vertex-paygo-display-setting-row > input {
+    width: 9.5rem;
+    max-width: 52%;
+    height: 32px;
+    min-height: 32px;
+    flex: 0 1 9.5rem;
+    padding: 0.2rem 0.4rem;
+}
+
+.vertex-paygo-shell .vertex-paygo-display-setting-row > input {
+    width: 4rem;
+    flex-basis: 4rem;
+    text-align: right;
+}
+
+#vertex-paygo-general-settings > .vertex-paygo-general-server-row > .vertex-paygo-maintenance-refresh {
+    box-sizing: border-box;
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: inherit;
+    opacity: 0.65;
+    cursor: pointer;
+}
+
+#vertex-paygo-general-settings > .vertex-paygo-general-server-row > .vertex-paygo-maintenance-refresh:focus-visible {
+    outline: 2px solid var(--vertex-paygo-accent);
+    outline-offset: 2px;
+}
+
+.vertex-paygo-tauritavern-notice {
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+
+.vertex-paygo-tauritavern-notice pre {
+    padding: 0.75rem;
+    border: 1px solid var(--vertex-paygo-border, var(--SmartThemeBorderColor, #888));
+    border-radius: 6px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    user-select: text;
+}
+
+.vertex-paygo-tauritavern-dialog {
+    box-sizing: border-box;
+    width: min(680px, 90vw);
+    max-height: 90vh;
+    overflow-y: auto;
+    color: var(--vertex-paygo-foreground, var(--SmartThemeBodyColor, #eee));
+    background: var(--vertex-paygo-background, var(--SmartThemeBlurTintColor, #222));
+    border: 1px solid var(--vertex-paygo-border, var(--SmartThemeBorderColor, #888));
+    border-radius: 10px;
+    padding: 1.25rem;
+}
+
+.vertex-paygo-log-dialog {
+    box-sizing: border-box;
+    width: min(760px, calc(100vw - 2rem));
+    width: min(760px, calc(100dvw - 2rem));
+    min-width: 0;
+    min-height: 0;
+    max-width: min(760px, calc(100vw - 2rem)) !important;
+    max-width: min(760px, calc(100dvw - 2rem)) !important;
+    height: calc(100vh - 2rem) !important;
+    height: calc(100dvh - 2rem) !important;
+    max-height: calc(100vh - 2rem) !important;
+    max-height: calc(100dvh - 2rem) !important;
+}
+
+.vertex-paygo-log-dialog :is(.popup-body, .vertex-paygo-dialog-body) {
+    min-height: 0;
+    max-height: none;
+    overflow: hidden;
+}
+
+.vertex-paygo-log-dialog :is(.popup-content, .vertex-paygo-dialog-content) {
+    min-height: 0;
+    margin-top: 0.5rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.vertex-paygo-log-dialog :is(.popup-controls, .vertex-paygo-dialog-controls) {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-self: stretch;
+    align-items: center;
+    width: 100%;
+    min-height: 2.25rem;
+    gap: 0.5rem;
+}
+
+.vertex-paygo-log-dialog .popup-controls > :is(.popup-button-ok, .popup-button-cancel) { display: none !important; }
+
+.vertex-paygo-log-dialog :is(.popup-controls, .vertex-paygo-dialog-controls) > .vertex-paygo-log-result-status {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    padding-left: 0.5rem;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header) {
+    width: 100%;
+    min-width: 0;
+}
+
+.vertex-paygo-log-dialog .vertex-paygo-log-header {
+    position: static;
+    margin-bottom: 0.75rem;
+    padding: 0.25rem 0 0.75rem;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0;
+    backdrop-filter: none !important;
+    text-align: start;
+}
+
+.vertex-paygo-log-dialog :is(.popup-body, .vertex-paygo-dialog-body) > .vertex-paygo-log-header {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    min-width: 0;
+    margin: 0.5rem 0 0;
+    padding: 0.25rem 8px 0.5rem;
+}
+
+.vertex-paygo-log-heading-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header, .vertex-paygo-pi-heading) .vertex-paygo-log-close {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    min-height: 28px;
+    flex: 0 0 28px;
+    font-size: 1rem;
+}
+
+.vertex-paygo-log-header h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    line-height: 1.5;
+}
+
+.vertex-paygo-log-description {
+    margin: 0.35rem 0 0;
+    color: var(--vertex-paygo-foreground, var(--SmartThemeBodyColor, #eee));
+    opacity: 0.75;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.vertex-paygo-log-output {
+    box-sizing: border-box;
+    width: 100%;
+    max-height: none;
+    height: auto;
+    margin: 0;
+    padding: 0 0 0.75rem;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--vertex-paygo-foreground, var(--SmartThemeBodyColor, #eee));
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    tab-size: 2;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    user-select: text;
+}
+
+.vertex-paygo-message-cost-setting {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+    margin-top: 0.75rem;
+}
+
+.vertex-paygo-message-cost-setting select {
+    width: 100%;
+    min-width: 0;
+}
+
+#vertex-paygo-worldinfo-stability label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+}
+#vertex-paygo-worldinfo-stability p { margin: 0; }
+#vertex-paygo-worldinfo-stability pre {
+    max-height: 20rem;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 0.8em;
+}
+
+.vertex-paygo-log-toolbar,
+.vertex-paygo-log-filters,
+.vertex-paygo-log-navigation {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.vertex-paygo-log-toolbar {
+    justify-content: space-between;
+    margin-top: 0.65rem;
+}
+
+.vertex-paygo-log-mode {
+    display: inline-flex;
+    box-sizing: border-box;
+    flex: 0 0 8rem;
+    width: 8rem;
+    min-width: 0;
+    height: 2rem;
+    gap: 0.15rem;
+    padding: 0.15rem;
+    border: 0;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--vertex-paygo-foreground, var(--SmartThemeBodyColor, #eee)) 7%, transparent);
+}
+
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header, .vertex-paygo-pi-heading, .vertex-paygo-pi-controls) :is(.menu_button, .vertex-paygo-log-tool) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.25rem;
+    margin: 0;
+    padding: 0.35rem 0.65rem;
+    font: inherit;
+    line-height: 1.25;
+}
+
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header, .vertex-paygo-pi-heading, .vertex-paygo-pi-controls) .vertex-paygo-icon-button {
+    width: 2.25rem;
+    flex: 0 0 2.25rem;
+    padding: 0;
+}
+
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header, .vertex-paygo-pi-heading, .vertex-paygo-pi-controls) .vertex-paygo-log-tool,
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header, .vertex-paygo-pi-heading, .vertex-paygo-pi-controls) .vertex-paygo-log-tool:hover,
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header, .vertex-paygo-pi-heading, .vertex-paygo-pi-controls) .vertex-paygo-log-tool:active,
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header, .vertex-paygo-pi-heading, .vertex-paygo-pi-controls) .vertex-paygo-log-tool:focus {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    color: inherit;
+    filter: none;
+    border-radius: 0;
+    cursor: pointer;
+}
+
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header, .vertex-paygo-pi-heading, .vertex-paygo-pi-controls) .vertex-paygo-log-tool { opacity: 0.65; }
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header, .vertex-paygo-pi-heading, .vertex-paygo-pi-controls) .vertex-paygo-log-tool:hover,
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header, .vertex-paygo-pi-heading, .vertex-paygo-pi-controls) .vertex-paygo-log-tool:focus-visible { opacity: 1; }
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header, .vertex-paygo-pi-heading, .vertex-paygo-pi-controls) .vertex-paygo-log-tool:disabled { opacity: 0.35; cursor: wait; }
+
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header, .vertex-paygo-pi-heading, .vertex-paygo-pi-controls) button:focus-visible,
+.vertex-paygo-log-entry > summary:focus-visible {
+    outline: 2px solid var(--vertex-paygo-accent, var(--SmartThemeQuoteColor, currentColor));
+    outline-offset: 2px;
+}
+
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header) .vertex-paygo-log-mode button {
+    box-sizing: border-box;
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+    padding: 0 0.75rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    box-shadow: none;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    opacity: 0.65;
+}
+
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header) .vertex-paygo-log-mode button[aria-pressed="true"] {
+    background: var(--vertex-paygo-background, var(--SmartThemeBlurTintColor, #222));
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--vertex-paygo-foreground, var(--SmartThemeBodyColor, #eee)) 10%, transparent);
+    font-weight: 600;
+    opacity: 1;
+}
+
+.vertex-paygo-log-filters {
+    margin-top: 0.5rem;
+}
+
+.vertex-paygo-log-filters input,
+.vertex-paygo-log-filters select {
+    box-sizing: border-box;
+    min-width: 0;
+    height: 2rem;
+    min-height: 2rem;
+    max-height: 2rem;
+    padding: 0.25rem 0.5rem;
+    margin: 0;
+    border: 1px solid color-mix(in srgb, var(--vertex-paygo-border, var(--SmartThemeBorderColor, #666)) 65%, transparent);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    line-height: 1.3;
+}
+
+.vertex-paygo-log-filters input {
+    width: 100%;
+    flex: 1 1 12rem;
+}
+
+.vertex-paygo-log-filters select {
+    flex: 0 1 10rem;
+    width: 10rem;
+}
+
+.vertex-paygo-log-feedback,
+.vertex-paygo-log-preview-notice {
+    margin: 0.4rem 0 0;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.vertex-paygo-log-count-fallback {
+    display: flex;
+    align-items: center;
+    min-height: 2.25rem;
+}
+
+.vertex-paygo-log-result-status {
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    opacity: 0.55;
+}
+
+.vertex-paygo-log-preview-notice {
+    color: var(--vertex-paygo-accent, var(--SmartThemeQuoteColor, #ba9e64));
+}
+
+.vertex-paygo-log-entry {
+    margin: 0;
+    border: 0;
+}
+
+.vertex-paygo-log-entry + .vertex-paygo-log-entry {
+    border-top: 1px dashed color-mix(in srgb, var(--vertex-paygo-border, var(--SmartThemeBorderColor, #666)) 35%, transparent);
+}
+
+.vertex-paygo-log-entry-summary {
+    display: grid;
+    grid-template-columns: 0.75rem 5.2rem 3.5rem 4.75rem minmax(0, 1fr);
+    align-items: start;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.6rem 0.25rem;
+    cursor: pointer;
+    list-style: none;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.vertex-paygo-log-entry-summary::-webkit-details-marker { display: none; }
+.vertex-paygo-log-disclosure {
+    align-self: start;
+    line-height: 1.5;
+    text-align: center;
+    opacity: 0.55;
+    transform-origin: center;
+    transition: transform 120ms ease;
+}
+
+.vertex-paygo-log-entry[open] > summary > .vertex-paygo-log-disclosure,
+.vertex-paygo-log-json[open] > summary > .vertex-paygo-log-disclosure { transform: rotate(90deg); }
+
+.vertex-paygo-log-entry-summary:hover {
+    background: color-mix(in srgb, var(--vertex-paygo-foreground, var(--SmartThemeBodyColor, #eee)) 4%, transparent);
+    border-radius: 5px;
+}
+.vertex-paygo-log-time { font-variant-numeric: tabular-nums; opacity: 0.7; }
+.vertex-paygo-log-source { opacity: 0.65; }
+
+.vertex-paygo-log-level {
+    font-size: 0.78rem;
+    border-radius: 4px;
+    padding: 0.05rem 0.25rem;
+    width: max-content;
+}
+
+.vertex-paygo-log-entry[data-level="error"] .vertex-paygo-log-level {
+    color: var(--vertex-paygo-error, var(--SmartThemeEmColor, #ce8585));
+    background: color-mix(in srgb, var(--vertex-paygo-error, var(--SmartThemeEmColor, #ce8585)) 12%, transparent);
+}
+
+.vertex-paygo-log-entry[data-level="warn"] .vertex-paygo-log-level {
+    color: var(--vertex-paygo-accent, var(--SmartThemeQuoteColor, #ba9e64));
+    background: color-mix(in srgb, var(--vertex-paygo-accent, var(--SmartThemeQuoteColor, #ba9e64)) 12%, transparent);
+}
+
+.vertex-paygo-log-entry[data-level="info"] .vertex-paygo-log-level {
+    background: color-mix(in srgb, var(--vertex-paygo-foreground, var(--SmartThemeBodyColor, #eee)) 7%, transparent);
+}
+
+.vertex-paygo-log-caption { display: flex; flex-direction: column; min-width: 0; }
+.vertex-paygo-log-event { overflow-wrap: anywhere; }
+.vertex-paygo-log-code,
+.vertex-paygo-log-excerpt { opacity: 0.65; font-size: 0.78rem; overflow-wrap: anywhere; }
+.vertex-paygo-log-excerpt { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.vertex-paygo-log-entry-name {
+    margin: 0.2rem 0 0.5rem;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+}
+
+.vertex-paygo-log-entry-body {
+    padding: 0.1rem 0.75rem 0.75rem 1.5rem;
+    min-width: 0;
+    font-size: 0.85rem;
+}
+
+.vertex-paygo-log-fields {
+    display: grid;
+    grid-template-columns: minmax(6rem, 11rem) minmax(0, 1fr);
+    gap: 0.35rem 0.75rem;
+    margin: 0.25rem 0 0.75rem;
+    line-height: 1.5;
+}
+
+.vertex-paygo-log-fields dt { opacity: 0.65; }
+.vertex-paygo-log-fields dd { margin: 0; min-width: 0; overflow-wrap: anywhere; user-select: text; }
+.vertex-paygo-log-json-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    list-style: none;
+    opacity: 0.75;
+}
+
+.vertex-paygo-log-json-summary::-webkit-details-marker { display: none; }
+.vertex-paygo-log-record-raw {
+    font: 0.8rem/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    overflow: visible;
+    max-height: none;
+    user-select: text;
+}
+
+.vertex-paygo-log-navigation {
+    justify-content: center;
+    margin: 0.75rem 0;
+    font-size: 0.85rem;
+}
+
+.vertex-paygo-log-empty {
+    margin: 1.25rem 0;
+    opacity: 0.7;
+}
+
+@media (pointer: coarse) {
+
+    :is(.vertex-paygo-log-viewer, .vertex-paygo-log-header, .vertex-paygo-pi-heading, .vertex-paygo-pi-controls) .vertex-paygo-icon-button {
+        min-height: 2.75rem;
+        width: 2.75rem;
+        flex-basis: 2.75rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vertex-paygo-log-disclosure { transition: none; }
+}
+
+@media (max-width: 600px) {
+    .vertex-paygo-log-entry-summary {
+        grid-template-columns: 0.6rem 4.1rem 2.3rem 3rem minmax(0, 1fr);
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.5rem 0.1rem;
+        font-size: 0.78rem;
+        white-space: nowrap;
+    }
+    .vertex-paygo-log-entry-summary > * { min-width: 0; }
+    .vertex-paygo-log-source {
+        font-size: 0.73rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .vertex-paygo-log-caption {
+        display: block;
+        overflow: hidden;
+        min-width: 0;
+    }
+    .vertex-paygo-log-event {
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .vertex-paygo-log-caption :is(.vertex-paygo-log-code, .vertex-paygo-log-excerpt) { display: none !important; }
+    .vertex-paygo-log-filters select { width: 7rem; flex-basis: 7rem; }
+    .vertex-paygo-log-fields { grid-template-columns: minmax(4rem, 6.5rem) minmax(0, 1fr); }
+    .vertex-paygo-log-entry-body { padding-left: 1rem; padding-right: 0.25rem; }
+}
+
+:is(.vertex-paygo-log-viewer, .vertex-paygo-log-header) [hidden] { display: none !important; }
+
+#vertex-paygo-settings [hidden] { display: none !important; }
+.vertex-paygo-tier-fixed { line-height: 2rem; user-select: text; }
+
+#vertex-paygo-settings .vertex-paygo-status--warning { color: var(--vertex-paygo-warning, var(--warning-color, var(--SmartThemeQuoteColor, inherit))); }
+#vertex-paygo-settings .vertex-paygo-status--error { color: var(--vertex-paygo-error, var(--error-color, var(--SmartThemeEmColor, inherit))); }
+
+#vertex-paygo-worldinfo-stability { text-align: left; }
+#vertex-paygo-worldinfo-stability .vertex-paygo-toggle-row { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; min-height: 28px; margin: 0; text-align: left; font-size: 0.85rem; font-weight: 400; line-height: 1.35; }
+#vertex-paygo-worldinfo-stability .vertex-paygo-toggle-row > span { min-width: 0; font-weight: 400; }
+#vertex-paygo-worldinfo-stability .vertex-paygo-compact-switch { appearance: none; display: inline-block; position: relative; box-sizing: border-box; flex: 0 0 32px; width: 32px; min-width: 32px; max-width: 32px; height: 18px; min-height: 18px; max-height: 18px; padding: 0; margin: 0; border: 1px solid var(--vertex-paygo-border, var(--SmartThemeBorderColor, currentColor)); border-radius: 999px; outline: none; background: color-mix(in srgb, currentColor 20%, transparent); box-shadow: none; filter: none; transform: none; cursor: pointer; transition: background-color 160ms ease; }
+#vertex-paygo-worldinfo-stability .vertex-paygo-compact-switch::before { content: ''; position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--SmartThemeCheckboxTickColor, currentColor); box-shadow: none; clip-path: none; transform: none; transition: transform 160ms ease; }
+#vertex-paygo-worldinfo-stability .vertex-paygo-compact-switch:checked { background: var(--vertex-paygo-accent, var(--SmartThemeQuoteColor, #67916d)); }
+#vertex-paygo-worldinfo-stability .vertex-paygo-compact-switch:checked::before { transform: translateX(14px); }
+#vertex-paygo-worldinfo-stability .vertex-paygo-compact-switch:focus-visible { outline: 2px solid var(--vertex-paygo-accent, var(--SmartThemeQuoteColor, currentColor)); outline-offset: 2px; }
+#vertex-paygo-worldinfo-stability .vertex-paygo-compact-switch:disabled { opacity: 0.45; cursor: not-allowed; }
+#vertex-paygo-worldinfo-stability .vertex-paygo-macro-rows { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+#vertex-paygo-worldinfo-stability .vertex-paygo-macro-row { display: flex; flex-direction: column; align-items: stretch; gap: 3px; min-height: 0; }
+#vertex-paygo-worldinfo-stability .vertex-paygo-macro-control { display: inline-flex; align-self: flex-start; align-items: center; justify-content: flex-start; gap: 5px; max-width: 100%; text-align: left; }
+#vertex-paygo-worldinfo-stability .vertex-paygo-macro-control code { font-size: 0.8rem; user-select: text; white-space: nowrap; }
+#vertex-paygo-worldinfo-stability .vertex-paygo-macro-copy { padding: 0; margin: 0; width: 24px; height: 24px; min-height: 24px; background: transparent; border: 0; box-shadow: none; }
+#vertex-paygo-worldinfo-stability #vertex-paygo-macro-status { display: block; opacity: 0.8; }
+@media (prefers-reduced-motion: reduce) {
+    #vertex-paygo-worldinfo-stability .vertex-paygo-compact-switch, #vertex-paygo-worldinfo-stability .vertex-paygo-compact-switch::before { transition: none; }
+}
+
+:is(#vertex-paygo-log-settings, #vertex-paygo-prompt-inspector-settings, #vertex-paygo-cache-diagnostics) {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    min-width: 0;
+}
+:is(#vertex-paygo-log-settings, #vertex-paygo-prompt-inspector-settings, #vertex-paygo-cache-diagnostics) [hidden] { display: none !important; }
+:is(#vertex-paygo-log-settings, #vertex-paygo-prompt-inspector-settings, #vertex-paygo-cache-diagnostics) .vertex-paygo-settings-log-buttons {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: .35rem;
+}
+:is(#vertex-paygo-log-settings, #vertex-paygo-prompt-inspector-settings, #vertex-paygo-cache-diagnostics) .vertex-paygo-log-button {
+    box-sizing: border-box;
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    min-height: 30px;
+    flex: 0 0 30px;
+    padding: 0;
+}
+:is(#vertex-paygo-log-settings, #vertex-paygo-prompt-inspector-settings, #vertex-paygo-cache-diagnostics) .vertex-paygo-log-settings-status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    min-width: 0;
+}
+:is(#vertex-paygo-log-settings, #vertex-paygo-prompt-inspector-settings, #vertex-paygo-cache-diagnostics) .vertex-paygo-log-settings-status-row > small { min-width: 0; }
+
+/* Cache diagnostics use the same entry rows and icon controls as runtime logs. */
+.vertex-paygo-cache-dialog {
+    box-sizing: border-box;
+    width: min(820px, calc(100vw - 2rem));
+    width: min(820px, calc(100dvw - 2rem));
+    max-width: calc(100dvw - 2rem) !important;
+    height: min(680px, calc(100vh - 2rem)) !important;
+    height: min(680px, calc(100dvh - 2rem)) !important;
+    max-height: calc(100dvh - 2rem) !important;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+    color: var(--vertex-paygo-foreground, var(--SmartThemeBodyColor, #e9e9ec));
+    background: var(--vertex-paygo-background, var(--SmartThemeBlurTintColor, #24252b));
+    border: 1px solid var(--vertex-paygo-border, var(--SmartThemeBorderColor, #60616b));
+    border-radius: 12px;
+    text-align: left;
+    white-space: normal;
+}
+.vertex-paygo-cache-dialog .popup-body,
+.vertex-paygo-cache-dialog .popup-content,
+.vertex-paygo-cache-dialog .vertex-paygo-dialog-body,
+.vertex-paygo-cache-dialog .vertex-paygo-dialog-content { display: flex; flex-direction: column; flex: 1 1 0; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0; overflow: hidden; }
+.vertex-paygo-cache-dialog :is(.popup-controls, .popup-button-close) { display: none !important; }
+.vertex-paygo-cache-dialog .vertex-paygo-dialog-controls { display: none !important; }
+.vertex-paygo-cache-dialog::backdrop { background: #0009; backdrop-filter: blur(4px); }
+.vertex-paygo-cache-viewer { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; font-family: inherit; line-height: 1.5; }
+.vertex-paygo-cache-viewer, .vertex-paygo-cache-viewer * { box-sizing: border-box; }
+.vertex-paygo-cache-viewer [hidden] { display: none !important; }
+.vertex-paygo-cache-viewer .vertex-paygo-log-header { flex: 0 0 auto; padding: 1rem 1.15rem .8rem; border-bottom: 1px solid var(--vertex-paygo-border, var(--SmartThemeBorderColor, #60616b)); }
+.vertex-paygo-cache-viewer .vertex-paygo-log-header h3 { min-width: 0; overflow-wrap: anywhere; }
+.vertex-paygo-cache-selector { display: flex; align-items: center; gap: .65rem; min-width: 0; margin-top: .8rem; font-size: .8rem; }
+.vertex-paygo-cache-selector > span { flex: 0 0 auto; opacity: .7; }
+.vertex-paygo-cache-selector select { flex: 1 1 auto; min-width: 0; width: 100%; height: 34px; min-height: 34px; margin: 0; padding: .3rem .5rem; font: inherit; }
+.vertex-paygo-cache-viewer-body { flex: 1 1 0; min-width: 0; min-height: 0; padding: 1rem 1.15rem 1.3rem; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; }
+.vertex-paygo-cache-request-meta { margin: 0 0 .8rem; font-size: .78rem; opacity: .7; overflow-wrap: anywhere; }
+.vertex-paygo-cache-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; }
+.vertex-paygo-cache-metric { min-width: 0; padding: .85rem; border: 1px solid color-mix(in srgb, var(--vertex-paygo-border, var(--SmartThemeBorderColor, #60616b)) 65%, transparent); border-radius: 8px; background: color-mix(in srgb, currentColor 4%, transparent); }
+.vertex-paygo-cache-metric-label { display: block; font-size: .76rem; opacity: .7; }
+.vertex-paygo-cache-metric-value { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .35rem; margin-top: .3rem; min-width: 0; }
+.vertex-paygo-cache-metric-value strong { font-size: 1.4rem; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.vertex-paygo-cache-metric-value small { font-size: .7rem; opacity: .6; }
+.vertex-paygo-cache-metric:last-child strong { color: var(--vertex-paygo-accent, var(--SmartThemeQuoteColor, #92bda8)); }
+.vertex-paygo-cache-progress { display: block; appearance: none; width: 100%; height: 6px; margin: .8rem 0 1rem; border: 0; border-radius: 99px; overflow: hidden; background: color-mix(in srgb, currentColor 10%, transparent); }
+.vertex-paygo-cache-progress::-webkit-progress-bar { background: color-mix(in srgb, currentColor 10%, transparent); }
+.vertex-paygo-cache-progress::-webkit-progress-value { background: var(--vertex-paygo-accent, var(--SmartThemeQuoteColor, #92bda8)); border-radius: 99px; }
+.vertex-paygo-cache-progress::-moz-progress-bar { background: var(--vertex-paygo-accent, var(--SmartThemeQuoteColor, #92bda8)); border-radius: 99px; }
+.vertex-paygo-cache-warning { margin: .7rem 0; padding: .6rem .75rem; border-left: 2px solid var(--vertex-paygo-accent, var(--SmartThemeQuoteColor, #92bda8)); background: color-mix(in srgb, currentColor 4%, transparent); font-size: .78rem; overflow-wrap: anywhere; }
+.vertex-paygo-cache-note { margin: .65rem 0; font-size: .78rem; opacity: .75; overflow-wrap: anywhere; }
+.vertex-paygo-cache-content > .vertex-paygo-cache-detail { margin-top: .8rem; border-top: 1px dashed color-mix(in srgb, var(--vertex-paygo-border, var(--SmartThemeBorderColor, #60616b)) 55%, transparent); padding-top: .8rem; }
+.vertex-paygo-cache-detail > summary { font-size: .83rem; }
+.vertex-paygo-cache-detail > summary::marker { content: ''; }
+.vertex-paygo-cache-viewer .vertex-paygo-log-record-raw { min-width: 0; word-break: break-word; }
+.vertex-paygo-cache-viewer-footer { flex: 0 0 auto; border-top: 1px solid var(--vertex-paygo-border, var(--SmartThemeBorderColor, #60616b)); padding: .55rem 1.15rem; opacity: .65; font-size: .8rem; }
+@media (max-width: 600px) {
+    .vertex-paygo-cache-dialog { width: calc(100dvw - .75rem); max-width: calc(100dvw - .75rem) !important; height: calc(100dvh - .75rem) !important; max-height: calc(100dvh - .75rem) !important; }
+    .vertex-paygo-cache-viewer .vertex-paygo-log-header { padding: .7rem .75rem; }
+    .vertex-paygo-cache-viewer .vertex-paygo-log-header h3 { font-size: .95rem; }
+    .vertex-paygo-cache-viewer .vertex-paygo-log-description { font-size: .75rem; }
+    .vertex-paygo-cache-selector { gap: .4rem; font-size: .73rem; }
+    .vertex-paygo-cache-viewer-body { padding: .8rem .75rem 1rem; }
+    .vertex-paygo-cache-metrics { gap: .35rem; }
+    .vertex-paygo-cache-metric { padding: .65rem .45rem; }
+    .vertex-paygo-cache-metric-label { font-size: .66rem; }
+    .vertex-paygo-cache-metric-value { gap: .1rem .2rem; }
+    .vertex-paygo-cache-metric-value strong { font-size: 1.05rem; }
+    .vertex-paygo-cache-metric-value small { font-size: .62rem; }
+    .vertex-paygo-cache-viewer-footer { padding: .5rem .75rem; }
+}
+@media (max-height: 450px) {
+    .vertex-paygo-cache-viewer .vertex-paygo-log-header { padding-top: .4rem; padding-bottom: .4rem; }
+    .vertex-paygo-cache-viewer .vertex-paygo-log-description { display: none; }
+    .vertex-paygo-cache-selector { margin-top: .35rem; }
+}
+
+/* Prompt Inspector: isolated viewer chrome; no settings / other popup overrides. */
+.vertex-paygo-prompt-inspector-dialog {
+    box-sizing: border-box;
+    width: min(1180px, calc(100vw - 2rem));
+    width: min(1180px, calc(100dvw - 2rem));
+    max-width: min(1180px, calc(100dvw - 2rem)) !important;
+    height: calc(100vh - 2rem) !important;
+    height: calc(100dvh - 2rem) !important;
+    max-height: calc(100dvh - 2rem) !important;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+    color: var(--vertex-paygo-foreground, var(--SmartThemeBodyColor, #e9e9ec));
+    background: var(--vertex-paygo-background, var(--SmartThemeBlurTintColor, #24252b));
+    border: 1px solid var(--vertex-paygo-border, var(--SmartThemeBorderColor, #60616b));
+    border-radius: 14px;
+    text-align: left;
+}
+.vertex-paygo-prompt-inspector-dialog :is(.popup-body, .vertex-paygo-dialog-body) {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    padding: 0;
+    overflow: hidden;
+}
+.vertex-paygo-prompt-inspector-dialog :is(.popup-content, .vertex-paygo-dialog-content) {
+    flex: 1 1 0;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+.vertex-paygo-prompt-inspector-dialog :is(.popup-controls, .popup-button-close) { display: none !important; }
+.vertex-paygo-prompt-inspector-dialog .vertex-paygo-dialog-controls { display: none !important; }
+.vertex-paygo-pi-fallback::backdrop { background: #0009; backdrop-filter: blur(4px); }
+.vertex-paygo-pi-fallback[open] { display: block; margin: auto; }
+.vertex-paygo-pi-fallback[role="dialog"] { position: fixed; inset: 0; z-index: 10000; box-shadow: 0 0 0 100vmax #0009; }
+.vertex-paygo-prompt-inspector {
+    --pi-accent: var(--vertex-paygo-accent, var(--SmartThemeQuoteColor, #92bda8));
+    --pi-border: var(--vertex-paygo-border, var(--SmartThemeBorderColor, #60616b));
+    --pi-surface: color-mix(in srgb, currentColor 4%, transparent);
+    --pi-muted: color-mix(in srgb, currentColor 65%, transparent);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    color: var(--vertex-paygo-foreground, var(--SmartThemeBodyColor, #e9e9ec));
+    font-family: inherit;
+    font-size: .88rem;
+    text-align: left;
+    line-height: 1.5;
+    isolation: isolate;
+}
+.vertex-paygo-prompt-inspector *, .vertex-paygo-prompt-inspector *::before, .vertex-paygo-prompt-inspector *::after { box-sizing: border-box; }
+.vertex-paygo-prompt-inspector [hidden] { display: none !important; }
+.vertex-paygo-prompt-inspector :is(h2, h3, h4, p, pre, dl) { margin: 0; min-width: 0; }
+.vertex-paygo-prompt-inspector :is(button, input, select) { font-family: inherit; color: inherit; max-width: 100%; }
+.vertex-paygo-prompt-inspector :is(button, summary, input, select, [tabindex]):focus-visible {
+    outline: 2px solid var(--pi-accent);
+    outline-offset: 3px;
+}
+.vertex-paygo-prompt-inspector button { cursor: pointer; }
+.vertex-paygo-prompt-inspector button:disabled { cursor: not-allowed; opacity: .45; }
+.vertex-paygo-prompt-inspector summary { cursor: pointer; user-select: none; }
+.vertex-paygo-pi-header { flex: 0 0 auto; display: flex; flex-direction: column; gap: .65rem; padding: 1.1rem 1.3rem .85rem; border-bottom: 1px solid var(--pi-border); }
+.vertex-paygo-pi-heading { display: flex; align-items: center; justify-content: space-between; gap: .8rem; }
+.vertex-paygo-pi-heading .vertex-paygo-log-close { font-size: 1rem; }
+.vertex-paygo-pi-titles { min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: .25rem .65rem; }
+.vertex-paygo-pi-titles h2 { font-size: 1.25rem; font-weight: 600; overflow-wrap: anywhere; }
+.vertex-paygo-pi-controls { flex: 0 0 auto; display: flex; align-items: center; flex-wrap: nowrap; gap: .35rem; }
+.vertex-paygo-pi-toggle { display: inline-flex; align-items: center; gap: .5rem; margin: 0; cursor: pointer; font-size: .8rem; }
+.vertex-paygo-pi-toggle input { width: 1rem; height: 1rem; margin: 0; accent-color: var(--pi-accent); }
+.vertex-paygo-pi-status { display: inline-flex; align-items: center; gap: .4rem; font-size: .74rem; white-space: nowrap; }
+.vertex-paygo-pi-status::before { content: ''; width: .42rem; height: .42rem; border-radius: 50%; background: currentColor; opacity: .5; }
+.vertex-paygo-pi-status[data-tone="active"] { color: var(--pi-accent); }
+.vertex-paygo-pi-status[data-tone="active"]::before { opacity: 1; }
+.vertex-paygo-prompt-inspector [data-tone="error"] { color: var(--vertex-paygo-error, var(--error-color, var(--SmartThemeEmColor, #e7a0a0))); }
+.vertex-paygo-prompt-inspector .vertex-paygo-pi-button { display: inline-flex; align-items: center; justify-content: center; min-height: 30px; width: auto; margin: 0; padding: .28rem .55rem; font-size: .75rem; line-height: 1.35; box-shadow: none; white-space: normal; }
+.vertex-paygo-pi-meta-disclosure { max-height: min(24vh, 200px); overflow-y: auto; font-size: .75rem; scrollbar-width: thin; }
+.vertex-paygo-pi-meta-disclosure > summary { color: var(--pi-muted); overflow-wrap: anywhere; }
+.vertex-paygo-pi-metadata { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content minmax(0, 1fr); gap: .15rem .6rem; font-size: .73rem; padding-top: .5rem; }
+.vertex-paygo-pi-metadata dt, .vertex-paygo-pi-source-fields dt { color: var(--pi-muted); }
+.vertex-paygo-pi-metadata dd, .vertex-paygo-pi-source-fields dd { margin: 0; overflow-wrap: anywhere; user-select: text; }
+.vertex-paygo-pi-notice { flex: 0 0 auto; padding: .55rem 1.3rem; max-height: 6rem; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .76rem; border-bottom: 1px solid var(--pi-border); border-left: 3px solid var(--pi-accent); background: var(--pi-surface); }
+.vertex-paygo-pi-work { flex: 1 1 0; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.vertex-paygo-pi-tabs { display: flex; flex-wrap: wrap; gap: .25rem; padding: .6rem 1.3rem 0; flex: 0 0 auto; }
+.vertex-paygo-prompt-inspector .vertex-paygo-pi-tabs > button { border: 0; border-radius: 5px 5px 0 0; padding: .55rem .75rem; min-height: 36px; background: transparent; opacity: .7; }
+.vertex-paygo-prompt-inspector .vertex-paygo-pi-tabs > button[aria-selected="true"] { color: var(--pi-accent); background: var(--pi-surface); box-shadow: inset 0 -2px var(--pi-accent); opacity: 1; }
+.vertex-paygo-prompt-inspector .vertex-paygo-pi-tabs > button[data-pi-action="tab-raw"] { margin-left: auto; font-size: .71rem; }
+.vertex-paygo-pi-tools { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, max-content); align-items: center; gap: .4rem; padding: .7rem 1.3rem .5rem; flex: 0 0 auto; min-width: 0; }
+.vertex-paygo-prompt-inspector .vertex-paygo-pi-search { min-width: 0; width: 100%; margin: 0; padding: .45rem .6rem; min-height: 34px; font-size: .8rem; border-radius: 6px; }
+.vertex-paygo-pi-chips { display: flex; flex-wrap: wrap; gap: .3rem; padding: 0 1.3rem .65rem; flex: 0 0 auto; }
+.vertex-paygo-pi-chip { font-size: .68rem; padding: .15rem .5rem; background: transparent; border: 1px solid var(--pi-border); border-radius: 99px; color: var(--pi-muted); }
+.vertex-paygo-pi-chip[aria-pressed="true"] { color: var(--pi-accent); border-color: var(--pi-accent); background: color-mix(in srgb, var(--pi-accent) 9%, transparent); }
+.vertex-paygo-pi-layout { flex: 1 1 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); min-width: 0; min-height: 0; position: relative; border-top: 1px solid var(--pi-border); }
+.vertex-paygo-pi-layout[data-drawer-open="false"] { grid-template-columns: minmax(0, 1fr); }
+.vertex-paygo-pi-sidebar { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border-right: 1px solid var(--pi-border); background: var(--pi-surface); }
+.vertex-paygo-pi-sidebar-header { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem .75rem .5rem 1.3rem; border-bottom: 1px solid var(--pi-border); }
+.vertex-paygo-pi-sidebar-heading { flex: 1 1 auto; font-size: .78rem; font-weight: 600; }
+.vertex-paygo-prompt-inspector .vertex-paygo-pi-sidebar-header [data-pi-action="drawer-close"] { border: 0; background: transparent; color: var(--pi-muted); }
+.vertex-paygo-pi-sidebar-content { flex: 1 1 0; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: .7rem .75rem .9rem 1.3rem; scrollbar-width: thin; overscroll-behavior: contain; }
+.vertex-paygo-prompt-inspector [data-pi-action="drawer"][aria-pressed="true"] { color: var(--pi-accent); background: color-mix(in srgb, var(--pi-accent) 12%, transparent); }
+.vertex-paygo-pi-source-group { margin-top: .85rem; }
+.vertex-paygo-pi-source-group > summary { font-size: .73rem; color: var(--pi-muted); }
+.vertex-paygo-pi-source-row { display: flex; flex-direction: column; gap: .1rem; width: 100%; min-height: 34px; text-align: left; color: inherit; background: transparent; border: 0; border-left: 2px solid transparent; padding: .45rem .5rem; font-size: .77rem; overflow-wrap: anywhere; }
+.vertex-paygo-pi-source-row[data-selected="true"] { border-left-color: var(--pi-accent); color: var(--pi-accent); background: var(--pi-surface); }
+.vertex-paygo-pi-panel { min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 1rem 1.3rem 1.3rem; overscroll-behavior: contain; scrollbar-width: thin; scroll-padding: 1rem; }
+.vertex-paygo-pi-section-heading { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: .35rem; margin-bottom: .75rem; }
+.vertex-paygo-pi-section-heading h3, .vertex-paygo-pi-section-title { font-size: .88rem; font-weight: 600; }
+.vertex-paygo-pi-section-title { margin: 0 0 .5rem !important; }
+.vertex-paygo-pi-panel > .vertex-paygo-pi-section-title:not(:first-child) { margin-top: 1.5rem !important; }
+.vertex-paygo-pi-muted { color: var(--pi-muted); font-size: .72rem; overflow-wrap: anywhere; }
+.vertex-paygo-pi-card { border: 1px solid var(--pi-border); border-radius: 9px; margin: .65rem 0; min-width: 0; background: var(--pi-surface); overflow: clip; }
+.vertex-paygo-pi-card[data-selected="true"] { border-color: var(--pi-accent); box-shadow: inset 3px 0 var(--pi-accent); }
+.vertex-paygo-pi-card-heading { padding: .65rem .8rem; font-size: .82rem; }
+.vertex-paygo-pi-message-heading { display: inline-flex; flex: 1 1 auto; width: 100%; min-width: 0; vertical-align: middle; flex-wrap: wrap; gap: .25rem .4rem; align-items: center; }
+.vertex-paygo-pi-message-labels { display: inline-flex; flex: 1 1 8rem; min-width: 0; flex-wrap: wrap; gap: .25rem .4rem; align-items: center; }
+.vertex-paygo-pi-message-heading > :is(.vertex-paygo-pi-order, .vertex-paygo-pi-role) { flex: 0 0 auto; }
+.vertex-paygo-pi-message-heading > .vertex-paygo-pi-excerpt { flex: 1 0 100%; }
+.vertex-paygo-pi-message-heading .vertex-paygo-pi-source-tag { margin: 0; }
+.vertex-paygo-prompt-inspector .vertex-paygo-pi-message-heading > [data-pi-action="copy-message"] { flex: 0 0 28px; width: 28px; min-width: 28px; height: 28px; min-height: 28px; margin: 0 0 0 auto; padding: 0; background: transparent; border: 0; opacity: .75; }
+.vertex-paygo-prompt-inspector .vertex-paygo-pi-message-heading > [data-pi-action="copy-message"]:is(:hover, :focus-visible) { opacity: 1; }
+.vertex-paygo-pi-order { color: var(--pi-muted); font-size: .7rem; font-variant-numeric: tabular-nums; }
+.vertex-paygo-pi-role { color: var(--pi-accent); font-weight: 600; max-width: 14rem; overflow-wrap: anywhere; white-space: pre-wrap; }
+.vertex-paygo-pi-excerpt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--pi-muted); font-size: .73rem; }
+.vertex-paygo-pi-card-body { padding: .75rem .9rem .9rem; border-top: 1px solid var(--pi-border); min-width: 0; }
+.vertex-paygo-pi-path { color: var(--pi-muted); font: .65rem ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; background: transparent; user-select: text; }
+.vertex-paygo-pi-source-tag { display: inline-flex; font-size: .68rem; color: var(--pi-accent); background: transparent; border: 1px solid color-mix(in srgb, var(--pi-accent) 40%, transparent); border-radius: 5px; padding: .1rem .35rem; max-width: 100%; overflow-wrap: anywhere; }
+.vertex-paygo-pi-source-tag[data-selected="true"] { background: color-mix(in srgb, var(--pi-accent) 14%, transparent); }
+.vertex-paygo-pi-unknown { font-size: .68rem; color: var(--pi-muted); border-bottom: 1px dashed var(--pi-muted); }
+.vertex-paygo-pi-text { white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; tab-size: 4; user-select: text; font: .83rem/1.7 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; min-width: 0; }
+.vertex-paygo-pi-text + .vertex-paygo-pi-text, .vertex-paygo-pi-part + .vertex-paygo-pi-text { margin-top: .65rem; padding-top: .65rem; border-top: 1px dashed var(--pi-border); }
+.vertex-paygo-pi-verified[data-selected="true"] { background: color-mix(in srgb, var(--pi-accent) 20%, transparent); box-shadow: 0 1px var(--pi-accent); }
+.vertex-paygo-pi-search-hit { background: color-mix(in srgb, var(--pi-accent) 35%, transparent); color: inherit; border-radius: 2px; }
+.vertex-paygo-pi-part { margin: .65rem 0; padding: .75rem; border: 1px dashed var(--pi-border); border-radius: 7px; background: var(--pi-surface); min-width: 0; }
+.vertex-paygo-pi-part-title { font-size: .76rem; font-weight: 600; margin-bottom: .25rem; overflow-wrap: anywhere; }
+.vertex-paygo-pi-part-detail { margin-top: .5rem; font-size: .73rem; min-width: 0; }
+.vertex-paygo-pi-structure, .vertex-paygo-pi-raw { display: block; width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; font: .76rem/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; user-select: text; background: transparent; color: inherit; border: 0; box-shadow: none; padding: .5rem 0; }
+.vertex-paygo-pi-raw { margin-top: .75rem !important; }
+.vertex-paygo-pi-source-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .2rem .75rem; margin-bottom: .75rem !important; font-size: .73rem; }
+.vertex-paygo-pi-source-heading, .vertex-paygo-pi-diff-heading { display: inline-flex; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; width: 100%; gap: .4rem .8rem; justify-content: space-between; overflow-wrap: anywhere; }
+.vertex-paygo-pi-change { display: flex; flex-direction: column; align-items: flex-start; gap: .4rem; margin: .65rem 0; padding: .75rem .9rem; border-left: 2px solid var(--pi-accent); background: var(--pi-surface); overflow-wrap: anywhere; }
+.vertex-paygo-pi-stage-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .7rem; margin: 1rem 0; }
+.vertex-paygo-pi-stage-controls label { display: flex; flex-direction: column; gap: .25rem; min-width: 0; font-size: .73rem; }
+.vertex-paygo-pi-stage-controls select { width: 100%; min-width: 0; margin: 0; padding: .4rem; font-size: .75rem; }
+.vertex-paygo-pi-comparison { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; margin-top: 1rem; }
+.vertex-paygo-pi-stage-column { min-width: 0; }
+.vertex-paygo-pi-stage-column h4 { font-size: .8rem; overflow-wrap: anywhere; }
+.vertex-paygo-pi-stage-column .vertex-paygo-pi-excerpt { display: none; }
+.vertex-paygo-pi-diff-summary { padding: .7rem; border: 1px dashed var(--pi-border); border-radius: 8px; font-size: .76rem; }
+.vertex-paygo-pi-diff-heading code { color: var(--pi-muted); font-size: .65rem; }
+.vertex-paygo-pi-diff-text ins { color: inherit; background: color-mix(in srgb, var(--pi-accent) 18%, transparent); text-decoration: underline; text-decoration-color: var(--pi-accent); }
+.vertex-paygo-pi-diff-text del { color: inherit; background: color-mix(in srgb, var(--SmartThemeEmColor, #c58f8f) 15%, transparent); }
+.vertex-paygo-pi-empty { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; text-align: center; padding: 2rem; min-height: 0; overflow: auto; }
+.vertex-paygo-pi-empty-symbol { font-size: 3rem; color: var(--pi-accent); opacity: .6; line-height: 1; }
+.vertex-paygo-pi-empty h3 { font-size: 1.05rem; }
+.vertex-paygo-pi-empty p { color: var(--pi-muted); font-size: .84rem; max-width: 50ch; }
+.vertex-paygo-pi-empty .vertex-paygo-pi-button { padding: .6rem 1rem; font-size: .8rem; }
+.vertex-paygo-pi-no-results { padding: 2rem 1rem; text-align: center; color: var(--pi-muted); font-size: .82rem; }
+.vertex-paygo-pi-footer { flex: 0 0 auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .3rem 1rem; padding: .5rem 1.3rem; border-top: 1px solid var(--pi-border); font-size: .68rem; color: var(--pi-muted); overflow-wrap: anywhere; }
+@media (max-width: 1000px) {
+    .vertex-paygo-pi-comparison { grid-template-columns: minmax(0, 1fr); }
+    .vertex-paygo-pi-layout { grid-template-columns: 185px minmax(0, 1fr); }
+}
+@media (max-width: 680px) {
+    .vertex-paygo-prompt-inspector-dialog {
+        width: calc(100vw - .75rem); width: calc(100dvw - .75rem);
+        max-width: calc(100dvw - .75rem) !important;
+        height: calc(100vh - .75rem) !important; height: calc(100dvh - .75rem) !important;
+        max-height: calc(100dvh - .75rem) !important; border-radius: 10px;
+    }
+    .vertex-paygo-pi-header { padding: .7rem .8rem; gap: .5rem; }
+    .vertex-paygo-pi-titles h2 { font-size: 1rem; }
+    .vertex-paygo-pi-heading { gap: .35rem; }
+    .vertex-paygo-pi-controls { gap: .2rem; }
+    .vertex-paygo-pi-titles { gap: .2rem .4rem; }
+    .vertex-paygo-pi-toggle { font-size: .73rem; }
+    .vertex-paygo-pi-status { font-size: .67rem; }
+    .vertex-paygo-pi-notice { padding: .4rem .8rem; max-height: 3.3rem; font-size: .68rem; }
+    .vertex-paygo-pi-metadata { grid-template-columns: max-content minmax(0, 1fr); }
+    .vertex-paygo-pi-tabs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: .3rem .6rem 0; gap: .15rem; }
+    .vertex-paygo-prompt-inspector .vertex-paygo-pi-tabs > button { padding: .35rem .3rem; min-height: 30px; font-size: .7rem; }
+    .vertex-paygo-prompt-inspector .vertex-paygo-pi-tabs > button[data-pi-action="tab-raw"] { margin-left: 0; font-size: .67rem; }
+    .vertex-paygo-pi-tools { padding: .5rem .75rem; gap: .3rem; }
+    .vertex-paygo-prompt-inspector .vertex-paygo-pi-search { font-size: .75rem; min-height: 36px; }
+    .vertex-paygo-pi-tools .vertex-paygo-pi-button { font-size: .65rem; min-height: 28px; }
+    .vertex-paygo-pi-chips { padding: 0 .75rem .5rem; gap: .25rem; max-height: 3.5rem; overflow-y: auto; }
+    .vertex-paygo-pi-chip { font-size: .62rem; }
+    .vertex-paygo-pi-layout { grid-template-columns: minmax(0, 1fr); }
+    .vertex-paygo-pi-layout[data-drawer-open="true"] .vertex-paygo-pi-sidebar {
+        position: absolute; inset: 0 auto 0 0; width: min(85%, 19rem); z-index: 2;
+        background: var(--vertex-paygo-background, var(--SmartThemeBlurTintColor, #24252b));
+        backdrop-filter: blur(16px); box-shadow: 6px 0 18px #0003;
+    }
+    .vertex-paygo-pi-sidebar-header { padding: .5rem .7rem; }
+    .vertex-paygo-pi-sidebar-content { padding: .7rem .8rem 1rem; }
+    .vertex-paygo-pi-panel { padding: .7rem .75rem 1rem; }
+    .vertex-paygo-pi-card-heading { padding: .55rem .6rem; }
+    .vertex-paygo-pi-message-heading { gap: .2rem .3rem; }
+    .vertex-paygo-pi-message-labels { gap: .2rem .3rem; flex-basis: 5rem; }
+    .vertex-paygo-pi-role { font-size: .76rem; max-width: 8rem; }
+    .vertex-paygo-pi-card-body { padding: .6rem; }
+    .vertex-paygo-pi-text { font-size: .76rem; line-height: 1.65; }
+    .vertex-paygo-pi-empty { padding: 1.25rem; }
+    .vertex-paygo-pi-footer { padding: .4rem .75rem; font-size: .62rem; }
+}
+@media (max-height: 550px) {
+    .vertex-paygo-pi-header { padding-top: .4rem; padding-bottom: .4rem; gap: .3rem; max-height: 36%; overflow-y: auto; }
+    .vertex-paygo-pi-tabs { padding-top: .15rem; }
+    .vertex-paygo-pi-tools { padding-top: .25rem; padding-bottom: .25rem; }
+    .vertex-paygo-pi-chips { max-height: 2rem; overflow-y: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .vertex-paygo-prompt-inspector *, .vertex-paygo-prompt-inspector *::before { transition: none !important; scroll-behavior: auto !important; }
+}
+
+.vertex-paygo-prompt-inspector .vertex-paygo-pi-request-fields { margin-top: 1rem; padding: .75rem; border-top: 1px solid var(--pi-border); font-size: .75rem; min-width: 0; }
+.vertex-paygo-prompt-inspector .vertex-paygo-pi-request-fields > summary { color: var(--pi-muted); }
+
+.vertex-paygo-prompt-inspector .vertex-paygo-pi-label-compact { display: none; }
+.vertex-paygo-prompt-inspector .vertex-paygo-pi-meta-disclosure > summary { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+@media (max-width: 680px) {
+    .vertex-paygo-prompt-inspector .vertex-paygo-pi-label-wide { display: none; }
+    .vertex-paygo-prompt-inspector .vertex-paygo-pi-label-compact { display: inline; }
+}
+@media (max-height: 550px) {
+    .vertex-paygo-prompt-inspector .vertex-paygo-pi-header { max-height: 26%; }
+    .vertex-paygo-prompt-inspector .vertex-paygo-pi-notice { max-height: 2rem; padding-top: .2rem; padding-bottom: .2rem; font-size: .65rem; }
+    .vertex-paygo-prompt-inspector .vertex-paygo-pi-tabs > button { min-height: 26px; padding: .3rem .5rem; }
+    .vertex-paygo-prompt-inspector .vertex-paygo-pi-tools .vertex-paygo-pi-button { min-height: 26px; font-size: .65rem; }
+    .vertex-paygo-prompt-inspector .vertex-paygo-pi-search { min-height: 26px; padding-top: .2rem; padding-bottom: .2rem; }
+    .vertex-paygo-prompt-inspector .vertex-paygo-pi-chips { max-height: 1.5rem; padding-bottom: .2rem; }
+}
+
+.vertex-paygo-prompt-inspector .vertex-paygo-pi-icon-action { width: 34px; min-width: 34px; height: 34px; padding: 0; flex: 0 0 auto; }
+.vertex-paygo-prompt-inspector .vertex-paygo-pi-tabs { display: flex; flex-wrap: wrap; gap: .35rem; }
+.vertex-paygo-pi-source-settings { margin: .25rem 0 .75rem; font-size: .73rem; color: var(--pi-muted); }
+.vertex-paygo-pi-source-settings .vertex-paygo-pi-source-fields { margin-top: .4rem !important; }
+@media (max-width: 680px) {
+    .vertex-paygo-prompt-inspector .vertex-paygo-pi-tools { gap: .4rem; }
+    .vertex-paygo-prompt-inspector .vertex-paygo-pi-icon-action { width: 36px; min-width: 36px; height: 36px; }
+}
+
+.vertex-paygo-pi-message[open] > summary .vertex-paygo-pi-excerpt { display: none; }
+.vertex-paygo-pi-message-heading .vertex-paygo-pi-role { min-width: 1rem; text-align: center; }
+.vertex-paygo-pi-source-settings h4 { margin: .25rem 0 .4rem; font-size: .73rem; font-weight: 600; }
+@media (max-width: 680px) {
+    .vertex-paygo-prompt-inspector .vertex-paygo-pi-tabs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .2rem; }
+}
+
+/* FA fold indicator for every native disclosure inside this viewer only. */
+.vertex-paygo-prompt-inspector details > summary { display: flex; align-items: center; gap: .4rem; list-style: none !important; }
+.vertex-paygo-prompt-inspector details > summary::marker { content: ""; }
+.vertex-paygo-prompt-inspector details > summary::-webkit-details-marker { display: none; }
+.vertex-paygo-prompt-inspector details > summary::before {
+    content: "\f054"; font-family: "Font Awesome 6 Free"; font-weight: 900; font-style: normal;
+    display: inline-block; flex: 0 0 .65rem; width: .65rem; font-size: .65rem; line-height: 1;
+    color: var(--pi-muted); text-align: center; transform: rotate(0deg); transition: transform .15s ease;
+    pointer-events: none; -webkit-font-smoothing: antialiased;
+}
+.vertex-paygo-prompt-inspector details[open] > summary::before { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) {
+    .vertex-paygo-prompt-inspector details > summary::before { transition: none; }
+}
+
+/* Same body overlay/content panel structure as QuickBar's message manager. */
+.vertex-paygo-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: transparent !important;
+    pointer-events: auto;
+}
+.vertex-paygo-dialog-panel {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: min(600px, calc(100vw - 2rem));
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 1rem;
+    overflow: hidden;
+    color: var(--vertex-paygo-foreground, var(--SmartThemeBodyColor));
+    background-color: var(--vertex-paygo-background, var(--SmartThemeBlurTintColor));
+    border: 1px solid var(--vertex-paygo-border, var(--SmartThemeBorderColor));
+    border-radius: 12px;
+    font-family: var(--mainFontFamily, sans-serif);
+    text-align: start;
+    pointer-events: auto;
+}
+.vertex-paygo-dialog-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+.vertex-paygo-dialog-content {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+.vertex-paygo-dialog-controls {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .5rem;
+}
+.vertex-paygo-dialog-panel [hidden] { display: none !important; }
+.vertex-paygo-dialog-panel.vertex-paygo-cost-dialog {
+    width: min(960px, calc(100vw - 2rem));
+    max-width: calc(100dvw - 2rem);
+}
+.vertex-paygo-dialog-panel.vertex-paygo-log-dialog {
+    width: min(760px, calc(100dvw - 2rem));
+    height: calc(100dvh - 2rem);
+}
+.vertex-paygo-dialog-panel.vertex-paygo-cache-dialog {
+    width: min(820px, calc(100dvw - 2rem));
+    height: min(680px, calc(100dvh - 2rem));
+    padding: 0;
+}
+.vertex-paygo-dialog-panel.vertex-paygo-prompt-inspector-dialog {
+    width: min(1180px, calc(100dvw - 2rem));
+    height: calc(100dvh - 2rem);
+    padding: 0;
+}
+@media (max-width: 680px) {
+    .vertex-paygo-dialog-panel.vertex-paygo-prompt-inspector-dialog,
+    .vertex-paygo-dialog-panel.vertex-paygo-cache-dialog {
+        width: calc(100dvw - .75rem);
+        max-width: calc(100dvw - .75rem) !important;
+        height: calc(100dvh - .75rem) !important;
+        max-height: calc(100dvh - .75rem) !important;
+    }
+}
+
+/* Native theme compatibility. Inline properties reference these state variables,
+ * so even a theme's !important declarations cannot freeze hover colors. */
+[data-vertex-paygo-theme] {
+    --vertex-paygo-foreground: var(--SmartThemeBodyColor, #eee);
+    --vertex-paygo-background: var(--SmartThemeBlurTintColor, #171717);
+    --vertex-paygo-border: var(--SmartThemeBorderColor, #888);
+    --vertex-paygo-accent: var(--SmartThemeQuoteColor, #8aa4ff);
+    --vertex-paygo-outline: color-mix(in srgb, var(--vertex-paygo-foreground) 18%, transparent);
+    --vertex-paygo-surface: color-mix(in srgb, var(--vertex-paygo-foreground) 5%, transparent);
+    --vertex-paygo-muted: color-mix(in srgb, var(--vertex-paygo-foreground) 72%, transparent);
+    color: var(--vertex-paygo-foreground);
+    font-family: var(--mainFontFamily, inherit);
+    text-shadow: none;
+    background-clip: border-box !important;
+    -webkit-text-fill-color: currentColor;
+}
+
+[data-vertex-paygo-theme-pending] { visibility: hidden !important; }
+[data-vertex-paygo-theme] :is(span, label, p, small, strong, b, h2, h3, h4, code, pre, summary) {
+    background-clip: border-box !important;
+    -webkit-text-fill-color: currentColor !important;
+    text-shadow: none !important;
+}
+[data-vertex-paygo-theme] small { color: inherit !important; }
+[data-vertex-paygo-theme] :is(h2, h3, h4, label) {
+    color: inherit !important;
+}
+[data-vertex-paygo-theme] [data-vertex-paygo-control] :is(span, b, strong) {
+    color: inherit !important;
+}
+[data-vertex-paygo-theme="floating"] {
+    backdrop-filter: var(--vertex-paygo-backdrop-filter, none);
+    -webkit-backdrop-filter: var(--vertex-paygo-backdrop-filter, none);
+}
+[data-vertex-paygo-theme="floating"] .vertex-paygo-pi-sidebar {
+    background-color: var(--vertex-paygo-background);
+}
+
+[data-vertex-paygo-control] {
+    font-family: inherit !important;
+    transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+}
+[data-vertex-paygo-control]:focus-visible {
+    outline: 2px solid var(--vertex-paygo-accent, currentColor) !important;
+    outline-offset: 2px;
+}
+[data-vertex-paygo-control]:disabled,
+[data-vertex-paygo-control][disabled] { opacity: .5; cursor: not-allowed; }
+
+/* Text has its own palette: themes commonly give textarea a different color
+ * from input[type=text], input[type=number] or select. */
+
+[data-vertex-paygo-control="button"] {
+    --vertex-paygo-control-color: var(--vertex-paygo-button-base-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-button-base-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-button-base-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-button-base-shadow, none);
+}
+
+[data-vertex-paygo-control="button"]:hover:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-button-hover-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-button-hover-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-button-hover-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-button-hover-shadow, none);
+}
+
+[data-vertex-paygo-control="button"]:active:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-button-active-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-button-active-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-button-active-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-button-active-shadow, none);
+}
+
+[data-vertex-paygo-control="button"]:focus-visible:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-button-focus-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-button-focus-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-button-focus-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-button-focus-shadow, none);
+}
+
+[data-vertex-paygo-control="button"]:disabled {
+    --vertex-paygo-control-color: var(--vertex-paygo-button-disabled-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-button-disabled-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-button-disabled-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-button-disabled-shadow, none);
+}
+
+[data-vertex-paygo-control="text"] {
+    --vertex-paygo-control-color: var(--vertex-paygo-text-base-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-text-base-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-text-base-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-text-base-shadow, none);
+}
+
+[data-vertex-paygo-control="text"]:hover:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-text-hover-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-text-hover-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-text-hover-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-text-hover-shadow, none);
+}
+
+[data-vertex-paygo-control="text"]:active:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-text-active-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-text-active-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-text-active-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-text-active-shadow, none);
+}
+
+[data-vertex-paygo-control="text"]:focus-visible:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-text-focus-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-text-focus-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-text-focus-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-text-focus-shadow, none);
+}
+
+[data-vertex-paygo-control="text"]:disabled {
+    --vertex-paygo-control-color: var(--vertex-paygo-text-disabled-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-text-disabled-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-text-disabled-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-text-disabled-shadow, none);
+}
+
+[data-vertex-paygo-control="number"] {
+    --vertex-paygo-control-color: var(--vertex-paygo-number-base-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-number-base-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-number-base-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-number-base-shadow, none);
+}
+
+[data-vertex-paygo-control="number"]:hover:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-number-hover-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-number-hover-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-number-hover-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-number-hover-shadow, none);
+}
+
+[data-vertex-paygo-control="number"]:active:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-number-active-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-number-active-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-number-active-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-number-active-shadow, none);
+}
+
+[data-vertex-paygo-control="number"]:focus-visible:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-number-focus-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-number-focus-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-number-focus-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-number-focus-shadow, none);
+}
+
+[data-vertex-paygo-control="number"]:disabled {
+    --vertex-paygo-control-color: var(--vertex-paygo-number-disabled-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-number-disabled-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-number-disabled-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-number-disabled-shadow, none);
+}
+
+[data-vertex-paygo-control="search"] {
+    --vertex-paygo-control-color: var(--vertex-paygo-search-base-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-search-base-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-search-base-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-search-base-shadow, none);
+}
+
+[data-vertex-paygo-control="search"]:hover:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-search-hover-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-search-hover-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-search-hover-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-search-hover-shadow, none);
+}
+
+[data-vertex-paygo-control="search"]:active:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-search-active-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-search-active-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-search-active-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-search-active-shadow, none);
+}
+
+[data-vertex-paygo-control="search"]:focus-visible:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-search-focus-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-search-focus-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-search-focus-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-search-focus-shadow, none);
+}
+
+[data-vertex-paygo-control="search"]:disabled {
+    --vertex-paygo-control-color: var(--vertex-paygo-search-disabled-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-search-disabled-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-search-disabled-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-search-disabled-shadow, none);
+}
+
+[data-vertex-paygo-control="textarea"] {
+    --vertex-paygo-control-color: var(--vertex-paygo-textarea-base-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-textarea-base-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-textarea-base-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-textarea-base-shadow, none);
+}
+
+[data-vertex-paygo-control="textarea"]:hover:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-textarea-hover-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-textarea-hover-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-textarea-hover-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-textarea-hover-shadow, none);
+}
+
+[data-vertex-paygo-control="textarea"]:active:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-textarea-active-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-textarea-active-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-textarea-active-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-textarea-active-shadow, none);
+}
+
+[data-vertex-paygo-control="textarea"]:focus-visible:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-textarea-focus-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-textarea-focus-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-textarea-focus-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-textarea-focus-shadow, none);
+}
+
+[data-vertex-paygo-control="textarea"]:disabled {
+    --vertex-paygo-control-color: var(--vertex-paygo-textarea-disabled-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-textarea-disabled-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-textarea-disabled-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-textarea-disabled-shadow, none);
+}
+
+[data-vertex-paygo-control="select"] {
+    --vertex-paygo-control-color: var(--vertex-paygo-select-base-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-select-base-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-select-base-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-select-base-shadow, none);
+}
+
+[data-vertex-paygo-control="select"]:hover:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-select-hover-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-select-hover-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-select-hover-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-select-hover-shadow, none);
+}
+
+[data-vertex-paygo-control="select"]:active:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-select-active-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-select-active-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-select-active-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-select-active-shadow, none);
+}
+
+[data-vertex-paygo-control="select"]:focus-visible:not(:disabled) {
+    --vertex-paygo-control-color: var(--vertex-paygo-select-focus-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-select-focus-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-select-focus-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-select-focus-shadow, none);
+}
+
+[data-vertex-paygo-control="select"]:disabled {
+    --vertex-paygo-control-color: var(--vertex-paygo-select-disabled-color, var(--vertex-paygo-foreground));
+    --vertex-paygo-control-background: var(--vertex-paygo-select-disabled-background, var(--vertex-paygo-background));
+    --vertex-paygo-control-border: var(--vertex-paygo-select-disabled-border, var(--vertex-paygo-border));
+    --vertex-paygo-control-shadow: var(--vertex-paygo-select-disabled-shadow, none);
+}
+
+/* Compact navigation and plain icon buttons sit directly on the drawer, so
+ * their foreground must match that surface, not a separately painted button. */
+[data-vertex-paygo-control="icon"],
+[data-vertex-paygo-control="tab"],
+[data-vertex-paygo-control="chip"],
+[data-vertex-paygo-control="row"] {
+    --vertex-paygo-control-color: var(--vertex-paygo-foreground);
+    --vertex-paygo-control-background: transparent;
+    --vertex-paygo-control-border: transparent;
+    --vertex-paygo-control-shadow: none;
+}
+:is([data-vertex-paygo-control="icon"], [data-vertex-paygo-control="tab"],
+    [data-vertex-paygo-control="chip"], [data-vertex-paygo-control="row"]):is(:hover, :focus-visible):not(:disabled) {
+    --vertex-paygo-control-background: var(--vertex-paygo-surface);
+}
+:is([data-vertex-paygo-control="icon"], [data-vertex-paygo-control="tab"],
+    [data-vertex-paygo-control="chip"], [data-vertex-paygo-control="row"]):active:not(:disabled) {
+    --vertex-paygo-control-background: color-mix(in srgb, var(--vertex-paygo-foreground) 10%, transparent);
+}
+[data-vertex-paygo-control="tab"] { --vertex-paygo-control-border: var(--vertex-paygo-outline); }
+[data-vertex-paygo-control="chip"] { --vertex-paygo-control-border: var(--vertex-paygo-border); }
+:is([data-vertex-paygo-control="tab"], [data-vertex-paygo-control="chip"], [data-vertex-paygo-control="row"]):is(
+    [aria-selected="true"], [aria-pressed="true"], [data-selected="true"]) {
+    --vertex-paygo-control-color: var(--vertex-paygo-accent);
+    --vertex-paygo-control-background: color-mix(in srgb, var(--vertex-paygo-accent) 10%, transparent);
+    --vertex-paygo-control-border: var(--vertex-paygo-accent);
+}
+:is([data-vertex-paygo-control="tab"], [data-vertex-paygo-control="chip"], [data-vertex-paygo-control="row"]):is(
+    [aria-selected="true"], [aria-pressed="true"], [data-selected="true"]):hover {
+    --vertex-paygo-control-background: color-mix(in srgb, var(--vertex-paygo-accent) 16%, transparent);
+}
+[data-vertex-paygo-control="icon"] { border-radius: 6px; }
+.vertex-paygo-message-cost-close[data-vertex-paygo-control] { border-radius: 50%; }
+
+/* Exactly one arrow source in every state. Other browsers use their native
+ * arrow; supported Chromium versions use only ::picker-icon. */
+select[data-vertex-paygo-control="select"] {
+    --vertex-paygo-select-appearance: auto;
+    background-image: none !important;
+    padding-inline-end: 1.5rem;
+}
+select[data-vertex-paygo-control="select"] option {
+    color: var(--vertex-paygo-select-base-color, var(--vertex-paygo-foreground)) !important;
+    background-color: var(--vertex-paygo-select-base-background, var(--vertex-paygo-background)) !important;
+    background-image: none !important;
+    font: inherit;
+}
+@supports (appearance: base-select) {
+    select[data-vertex-paygo-control="select"]:not([multiple]):not([size]) {
+        --vertex-paygo-select-appearance: base-select;
+        align-items: center;
+        gap: .5rem;
+        padding-inline-end: .5rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    select[data-vertex-paygo-control="select"]::picker(select) {
+        appearance: base-select;
+        box-sizing: border-box;
+        max-width: min(42rem, calc(100dvw - 1rem));
+        max-height: min(24rem, 50dvh);
+        overflow: auto;
+        padding: .25rem;
+        border: 1px solid var(--vertex-paygo-border);
+        border-radius: 8px;
+        color: var(--vertex-paygo-select-base-color, var(--vertex-paygo-foreground)) !important;
+        background: var(--vertex-paygo-select-base-background, var(--vertex-paygo-background)) !important;
+        background-image: none !important;
+        box-shadow: 0 8px 24px #0003;
+        font: inherit;
+    }
+    select[data-vertex-paygo-control="select"]::picker-icon {
+        flex: 0 0 auto;
+        margin-inline-start: auto;
+        color: currentColor;
+        background: none !important;
+        transition: transform 140ms ease;
+    }
+    select[data-vertex-paygo-control="select"]:open::picker-icon { transform: rotate(180deg); }
+    select[data-vertex-paygo-control="select"] option {
+        min-height: 2rem;
+        padding: .4rem .55rem;
+        border-radius: 5px;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+    select[data-vertex-paygo-control="select"] option::checkmark { display: none !important; }
+    select[data-vertex-paygo-control="select"] option:checked {
+        color: var(--vertex-paygo-select-accent, var(--vertex-paygo-accent)) !important;
+        background-color: color-mix(in srgb, var(--vertex-paygo-select-accent, var(--vertex-paygo-accent)) 12%,
+            var(--vertex-paygo-select-base-background, var(--vertex-paygo-background))) !important;
+    }
+    select[data-vertex-paygo-control="select"] option:is(:hover, :focus-visible) {
+        color: var(--vertex-paygo-select-hover-color, var(--vertex-paygo-foreground)) !important;
+        background-color: var(--vertex-paygo-select-hover-background, var(--vertex-paygo-background)) !important;
+    }
+}
+
+/* Custom surfaces are paired with the appropriate sampled foreground. */
+[data-vertex-paygo-theme] :is(.vertex-paygo-log-record-raw, .vertex-paygo-log-output,
+    .vertex-paygo-pi-raw, .vertex-paygo-pi-structure, .vertex-paygo-tauritavern-notice pre,
+    #vertex-paygo-worldinfo-stability pre) {
+    padding: .65rem .75rem;
+    border: 1px solid var(--vertex-paygo-textarea-base-border, var(--vertex-paygo-border));
+    border-radius: 6px;
+    color: var(--vertex-paygo-textarea-base-color, var(--vertex-paygo-foreground)) !important;
+    background: var(--vertex-paygo-textarea-base-background, var(--vertex-paygo-background)) !important;
+    background-clip: border-box !important;
+    -webkit-text-fill-color: currentColor !important;
+}
+[data-vertex-paygo-theme] :is(.vertex-paygo-cache-metric, .vertex-paygo-message-cost-top .vertex-paygo-message-cost-metric) {
+    color: var(--vertex-paygo-foreground);
+    background: var(--vertex-paygo-surface);
+    border-color: var(--vertex-paygo-outline);
+}
+[data-vertex-paygo-theme] .vertex-paygo-cost-table th {
+    color: var(--vertex-paygo-foreground);
+    background: var(--vertex-paygo-background);
+}
+[data-vertex-paygo-theme] :is(.vertex-paygo-log-description, .vertex-paygo-log-mode, .vertex-paygo-cost-summary,
+    .vertex-paygo-pi-notice, .vertex-paygo-pi-sidebar, .vertex-paygo-pi-card, .vertex-paygo-pi-part,
+    .vertex-paygo-pi-change, .vertex-paygo-cache-warning, .vertex-paygo-macro-control code) {
+    background-clip: border-box !important;
+    -webkit-text-fill-color: currentColor !important;
+}
+[data-vertex-paygo-theme] :is(input, textarea)::placeholder {
+    color: var(--vertex-paygo-control-color, currentColor) !important;
+    -webkit-text-fill-color: currentColor !important;
+    opacity: .6;
+}
+[data-vertex-paygo-theme] .vertex-paygo-macro-control code {
+    color: inherit !important;
+    background: var(--vertex-paygo-surface) !important;
+    padding: .12rem .35rem;
+    border-radius: 4px;
+}
+[data-vertex-paygo-theme] :is(.vertex-paygo-status--error, [data-tone="error"],
+    .vertex-paygo-cost-feedback[data-state="error"]) { color: var(--vertex-paygo-error, #c85858) !important; }
+[data-vertex-paygo-theme] :is(.vertex-paygo-status--warning,
+    .vertex-paygo-cache-warning) { color: var(--vertex-paygo-warning, inherit) !important; }
+[data-vertex-paygo-theme] .vertex-paygo-cost-feedback[data-state="success"] { color: var(--vertex-paygo-success, #48946a) !important; }
+
+/* Protect only our icons. Native chat icons and other extensions retain their
+ * own styling; known glyphs also withstand theme overrides of ::before. */
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid,
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid::before {
+    display: inline-block !important;
+    font-family: "Font Awesome 6 Free" !important;
+    font-weight: 900 !important;
+    font-style: normal !important;
+    color: inherit !important;
+    background: none !important;
+    background-image: none !important;
+    background-clip: border-box !important;
+    -webkit-text-fill-color: currentColor !important;
+}
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid {
+    color: inherit !important;
+    width: auto !important;
+    height: auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+}
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid::before { font-size: inherit !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-angle-right::before { content: "\f105" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-chart-simple::before { content: "\e473" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-chevron-left::before { content: "\f053" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-chevron-right::before { content: "\f054" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-circle-chevron-down::before { content: "\f13a" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-circle-chevron-up::before { content: "\f139" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-coins::before { content: "\f51e" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-compress::before { content: "\f066" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-copy::before { content: "\f0c5" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-download::before { content: "\f019" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-eraser::before { content: "\f12d" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-expand::before { content: "\f065" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-file-lines::before { content: "\f15c" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-filter-circle-xmark::before { content: "\e17b" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-gear::before { content: "\f013" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-layer-group::before { content: "\f5fd" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-list-ul::before { content: "\f0ca" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-location-dot::before { content: "\f3c5" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-robot::before { content: "\f544" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-rotate::before { content: "\f2f1" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-rotate-right::before { content: "\f2f9" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-sliders::before { content: "\f1de" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-user::before { content: "\f007" !important; }
+:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-xmark::before { content: "\f00d" !important; }
+
+#vertex-paygo-worldinfo-stability .vertex-paygo-compact-switch {
+    appearance: none !important;
+    width: 32px !important; height: 18px !important;
+    min-width: 32px !important; min-height: 18px !important;
+    max-width: 32px !important; max-height: 18px !important;
+    background: color-mix(in srgb, var(--vertex-paygo-foreground, currentColor) 18%, transparent) !important;
+    border-color: var(--vertex-paygo-outline, currentColor) !important;
+    background-clip: border-box !important;
+}
+#vertex-paygo-worldinfo-stability .vertex-paygo-compact-switch::before { background: var(--vertex-paygo-foreground, currentColor); }
+#vertex-paygo-worldinfo-stability .vertex-paygo-compact-switch:checked { background: var(--vertex-paygo-accent) !important; }
+#vertex-paygo-worldinfo-stability .vertex-paygo-compact-switch:checked::before { background: var(--vertex-paygo-background); }
+@media (pointer: coarse) {
+    [data-vertex-paygo-theme] [data-vertex-paygo-control]:is(textarea, input, select) { font-size: max(16px, 1em); }
+}
+@media (prefers-reduced-motion: reduce) {
+    [data-vertex-paygo-control], select[data-vertex-paygo-control="select"]::picker-icon { transition: none !important; }
+}
