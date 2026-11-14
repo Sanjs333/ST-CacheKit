@@ -279,7 +279,9 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
     };
     const button = (s, label, name, fn, dynamic = false) => {
         const icon = ACTION_ICONS.get(name);
-        const node = make('button', `menu_button vertex-paygo-pi-button${icon ? ' vertex-paygo-pi-icon-action' : ''}`, icon ? undefined : label,
+        const classes = icon ? 'vertex-paygo-icon-button vertex-paygo-log-tool vertex-paygo-pi-button vertex-paygo-pi-icon-action'
+            : 'menu_button vertex-paygo-pi-button';
+        const node = make('button', classes, icon ? undefined : label,
             { type: 'button', 'data-pi-action': name, 'aria-label': label, title: label });
         if (icon) node.append(make('i', `fa-solid ${icon}`, undefined, { 'aria-hidden': 'true' }));
         listen(s, node, 'click', fn, dynamic);
@@ -362,6 +364,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         s.metaDisclosure = metaDisclosure;
         header.append(heading, metaDisclosure);
         s.notice = make('div', 'vertex-paygo-pi-notice', '', { role: 'status', 'data-pi-notice': '' });
+        metaDisclosure.append(s.notice);
         const work = make('div', 'vertex-paygo-pi-work');
         s.work = work;
         const tabs = make('div', 'vertex-paygo-pi-tabs', undefined, { role: 'tablist', 'aria-label': '查看方式' });
@@ -392,7 +395,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         listen(s, s.search, 'input', () => { s.query = s.search.value; renderContent(s); });
         s.drawerButton = button(s, '来源目录', 'drawer', () => {
             s.drawer = !s.drawer; updateDrawer(s);
-            if (s.drawer) s.sidebar.focus?.({ preventScroll: true });
+            if (s.drawer) { syncDirectorySelection(s); s.sidebar.focus?.({ preventScroll: true }); }
         });
         s.drawerButton.setAttribute('aria-controls', `${prefix}-sidebar`);
         s.drawerButton.hidden = nativeLog;
@@ -426,13 +429,14 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         const footer = make('footer', 'vertex-paygo-pi-footer');
         s.counter = make('span', '', '', { 'data-pi-count': '' });
         s.feedback = make('span', '', '', { role: 'status', 'aria-live': 'polite', 'data-pi-feedback': '' });
-        footer.append(s.counter, s.feedback); s.root.append(header, s.notice, s.empty, work, footer);
+        footer.append(s.counter, s.feedback); s.root.append(header, s.empty, work, footer);
         if (sourceViewport?.addEventListener) listen(s, sourceViewport, 'change', event => {
             s.sourceCompact = event.matches;
             for (const schedule of s.sourcePreviews) schedule();
         });
         if (compactViewport?.addEventListener) listen(s, compactViewport, 'change', event => {
             s.compact = event.matches; s.drawer = !s.compact; updateDrawer(s);
+            if (s.drawer) syncDirectorySelection(s);
             if (!s.drawer && s.sidebar.contains(doc.activeElement)) s.drawerButton.focus?.({ preventScroll: true });
         });
         return s;
@@ -471,6 +475,20 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         s.drawerButton.setAttribute('aria-pressed', String(s.drawer));
         s.drawerButton.setAttribute('title', s.drawer ? '收起来源目录' : '打开来源目录');
         s.drawerButton.setAttribute('aria-label', s.drawer ? '收起来源目录' : '打开来源目录');
+    }
+    function syncDirectorySelection(s) {
+        if (!s.drawer || !s.selected) return;
+        const content = s.sidebar.querySelector('.vertex-paygo-pi-sidebar-content');
+        const row = [...s.sidebar.querySelectorAll('.vertex-paygo-pi-source-row')]
+            .find(node => node.getAttribute('data-pi-source') === s.selected);
+        if (!content || !row) return;
+        const group = row.closest('.vertex-paygo-pi-source-group');
+        if (group) group.open = true;
+        if (!row.getClientRects().length) return;
+        const padding = parseFloat(doc.defaultView.getComputedStyle(content).paddingTop) || 8;
+        const top = content.scrollTop + row.getBoundingClientRect().top - content.getBoundingClientRect().top - padding;
+        if (typeof content.scrollTo === 'function') content.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
+        else content.scrollTop = Math.max(0, top);
     }
     function hideDrawer(s) { s.drawer = false; updateDrawer(s); s.drawerButton.focus?.({ preventScroll: true }); }
     function switchTab(s, tab) { s.tab = tab; if (s.compact) s.drawer = false; renderContent(s); s.panel.scrollTop = 0; }
@@ -649,6 +667,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         s.sourceScrollFrame = doc.defaultView.requestAnimationFrame(() => {
             s.sourceScrollFrame = 0;
             if (session !== s || s.selected !== id || s.tab !== tab) return;
+            syncDirectorySelection(s);
             const textTarget = s.textTargets.get(id);
             const target = textTarget ?? s.targets.get(id);
             if (!target || !s.panel.contains(target) || !target.getClientRects().length) return;
@@ -952,6 +971,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             for (const source of group) {
                 if (s.query && !matchesQuery(s, `${sourceLabel(source)}\n${text(source.text)}\n${text(source.world)}`)) continue;
                 const row = sourceButton(s, source.id); row.className = 'vertex-paygo-pi-source-row';
+                if (s.selected === source.id) row.setAttribute('aria-current', 'true');
                 const matches = positions.get(source.id) ?? [];
                 if (matches.length) row.append(make('small', 'vertex-paygo-pi-muted', `正文第 ${matches.join('、')} 条`));
                 row.setAttribute('title', `${sourceLabel(source)} · ${s.selected === source.id ? '再次点击取消选择' : matches.length ? '跳转到发送正文' : '查看来源内容'}`);
@@ -963,6 +983,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         if (!groups.size) content.append(make('p', 'vertex-paygo-pi-muted', s.frontend
             ? '暂无来源信息，可查看前端消息。服务商最终请求未捕获。'
             : '暂无来源信息，可查看已捕获的请求。'));
+        syncDirectorySelection(s);
     }
     function renderContent(s) {
         if (!s.view || session !== s || disposed) return;
@@ -1064,6 +1085,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             }
         }
         field('响应状态码', text(record.metadata?.httpStatus ?? record.metadata?.statusCode));
+        field('失败代码', text(record.errorCode));
         if (typeof record.metadata?.durationMs === 'number') field('耗时', `${record.metadata.durationMs} 毫秒`);
         if (typeof record.metadata?.stream === 'boolean') field(tauriFrontend ? '前端流式设置' : '流式响应', record.metadata.stream ? '开启（逐段接收）' : '关闭（一次接收）',
             tauriFrontend ? '前端设置已记录，实际输出方式未确认。' : '流式模式逐段显示，非流式模式等待完整响应。');
