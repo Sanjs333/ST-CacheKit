@@ -320,7 +320,8 @@ export function installWorldInfoStability({ context, getContext = () => context,
             for (let attempt = 0; attempt < receiptAttempts; attempt++) {
                 if (destroyed || !enabled() || pending.get(token) !== item || item.scope !== scope()) { pending.delete(token); return false; }
                 try {
-                    const response = await serverClient.readUsage(item.chatId, { includeRequestPreviews: true, latest: 12 });
+                    const response = await serverClient.readUsage(item.chatId, { includeRequestPreviews: true,
+                        ...(prepared.usageLookup === true ? { ids: [prepared.usageId] } : { latest: 12 }) });
                     if (destroyed || pending.get(token) !== item || item.scope !== scope()) return false;
                     const record = response?.records?.find(record => record.id === prepared.usageId && record.chatId === item.chatId);
                     const receipt = record?.googleRequests?.flatMap(request => [request.worldInfoOrder, request.latestWorldInfoOrder])

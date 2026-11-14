@@ -464,39 +464,56 @@ export function createServerClient({ fetchImpl = globalThis.fetch, getRequestHea
                 method: 'DELETE', headers: { ...getRequestHeaders(), Accept: 'application/json' }, cache: 'no-store',
             }, LOG_TIMEOUT_MS);
         },
-        async readUsage(chatId, { includeRequestPreviews = false, latest } = {}) {
+        async readUsage(chatId, { includeRequestPreviews = false, latest, ids } = {}) {
             if (typeof chatId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(chatId)) {
                 throw new TypeError('需要有效的对话用量 ID。');
             }
             if (latest !== undefined && (includeRequestPreviews !== true || !Number.isSafeInteger(latest) || latest < 1 || latest > 50)) {
                 throw new TypeError('读取最近请求预览时需要明确的数量限制。');
             }
+            if (ids !== undefined && (!Array.isArray(ids) || latest !== undefined
+                || ids.some(id => typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(id)))) {
+                throw new TypeError('需要有效的用量记录 ID 列表。');
+            }
+            const wanted = ids === undefined ? null : new Set(ids);
+            if (wanted?.size === 0) return { ok: true, records: [], truncated: false };
+            const batches = wanted ? Array.from(wanted).reduce((result, id, index) => {
+                if (index % 100 === 0) result.push([]);
+                result.at(-1).push(id); return result;
+            }, []) : [null];
             const previewSuffix = includeRequestPreviews === true ? `&includeRequestPreviews=1${latest === undefined ? '' : `&latest=${latest}`}` : '';
             const records = [];
-            const cursors = new Set();
-            let cursor;
             let truncated = false;
-            do {
-                const suffix = cursor === undefined ? '' : `&cursor=${encodeURIComponent(cursor)}`;
-                const data = await fetchJson(fetchImpl, `${SERVER_ROUTES.USAGE}?chatId=${encodeURIComponent(chatId)}${previewSuffix}${suffix}`, {
-                    method: 'GET',
-                    headers: { ...getRequestHeaders(), Accept: 'application/json' },
-                    cache: 'no-store',
-                }, LOG_TIMEOUT_MS);
-                if (data?.ok !== true || !Array.isArray(data.records)) {
-                    throw new ServerPluginError('用量记录响应无效。', { code: 'INVALID_USAGE_RESPONSE' });
-                }
-                records.push(...data.records);
-                cursor = data.nextCursor ?? undefined;
-                // All fetched pages together form the complete ledger.
-                truncated ||= data.truncated === true && cursor === undefined;
-                if (cursor !== undefined) {
-                    if (typeof cursor !== 'string' || cursor.length > 256 || !cursor || cursors.has(cursor)) {
-                        throw new ServerPluginError('用量记录的分页游标无效。', { code: 'INVALID_USAGE_RESPONSE' });
+            for (const batch of batches) {
+                const cursors = new Set();
+                let cursor, lookup = false;
+                const idSuffix = batch ? '&ids=' + encodeURIComponent(batch.join(',')) : '';
+                do {
+                    const suffix = cursor === undefined ? '' : `&cursor=${encodeURIComponent(cursor)}`;
+                    const data = await fetchJson(fetchImpl, `${SERVER_ROUTES.USAGE}?chatId=${encodeURIComponent(chatId)}${previewSuffix}${idSuffix}${suffix}`, {
+                        method: 'GET',
+                        headers: { ...getRequestHeaders(), Accept: 'application/json' },
+                        cache: 'no-store',
+                    }, LOG_TIMEOUT_MS);
+                    if (data?.ok !== true || !Array.isArray(data.records)) {
+                        throw new ServerPluginError('用量记录响应无效。', { code: 'INVALID_USAGE_RESPONSE' });
                     }
-                    cursors.add(cursor);
-                }
-            } while (cursor !== undefined);
+                    lookup ||= data.lookup === true;
+                    for (const record of data.records) if (!wanted || wanted.has(record?.id)) records.push(record);
+                    cursor = data.nextCursor ?? undefined;
+                    // All fetched pages together form the complete ledger.
+                    truncated ||= data.truncated === true && cursor === undefined;
+                    if (cursor !== undefined) {
+                        if (typeof cursor !== 'string' || cursor.length > 256 || !cursor || cursors.has(cursor)) {
+                            throw new ServerPluginError('用量记录的分页游标无效。', { code: 'INVALID_USAGE_RESPONSE' });
+                        }
+                        cursors.add(cursor);
+                    }
+                } while (cursor !== undefined);
+                // Older servers ignore ids and return the full paginated ledger.
+                // That first scan already resolves every requested ID.
+                if (wanted && !lookup) break;
+            }
             return { ok: true, records, truncated };
         },
 

@@ -6,7 +6,7 @@
 
 import { formatMessageCostLabel, formatMessageMoney, summarizeMessageCost } from './message-cost-view.js';
 import { createLocalizer, getTierLabel } from './i18n.js';
-import { bindExtensionTheme } from './theme.js';
+import { bindExtensionTheme, subscribeThemeChanges } from './theme.js';
 import { isolateDialogEvents } from './panel-events.js';
 import { DEFAULT_MESSAGE_COST_PLACEMENT, DEFAULT_MESSAGE_COST_RECENT_COUNT, normalizeMessageCostPlacement, isModelReply, recentModelReplyIndices } from "./message-cost-settings.js";
 
@@ -328,20 +328,7 @@ export function createMessageCostUi({ getContext, getMessageCost, getPrices, get
     // Theme/layout switches can hide the avatar column without rerendering any
     // messages. Move existing triggers when the host changes its body classes.
     const Observer = documentRef?.defaultView?.MutationObserver;
-    const layoutObserver = Observer && documentRef.body ? new Observer(() => render()) : null;
-    layoutObserver?.observe(documentRef.body, { attributes: true, attributeFilter: ['class'] });
-    // Custom CSS changes need not change body classes. SillyTavern keeps
-    // #custom-style in head; watch style text/link changes, not chat token DOM.
-    const isProbeStyle = node => node?.nodeType === 1 && node.hasAttribute('data-vertex-paygo-probe-style');
-    const themeObserver = Observer && documentRef.head ? new Observer(records => {
-        // Theme sampling adds/removes its own temporary stylesheet. Its rules
-        // apply only to hidden probes, so message labels/layout cannot change.
-        if (records.every(record => record.type === 'childList'
-            && [...record.addedNodes, ...record.removedNodes].every(isProbeStyle))) return;
-        render();
-    }) : null;
-    themeObserver?.observe(documentRef.head, { childList: true, subtree: true, characterData: true,
-        attributes: true, attributeFilter: ['href', 'media', 'disabled'] });
+    const stopThemeTracking = subscribeThemeChanges(documentRef, render);
     // Native chat virtualization can remount a message without a generation
     // event. Only react to message roots, ignoring our own button/card changes.
     const containsMessage = element => element?.matches?.('.mes[mesid]')
@@ -381,8 +368,7 @@ export function createMessageCostUi({ getContext, getMessageCost, getPrices, get
         documentRef?.defaultView?.removeEventListener?.('resize', resize);
         documentRef?.defaultView?.removeEventListener?.('scroll', reposition, true);
         if (chatChanged) context.eventSource?.removeListener?.(chatChanged, close);
-        layoutObserver?.disconnect();
-        themeObserver?.disconnect();
+        stopThemeTracking();
         messageObserver?.disconnect();
         for (const trigger of attachedButtons.values()) trigger.remove();
         attachedButtons.clear();

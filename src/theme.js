@@ -311,36 +311,73 @@ function restoreStyle(node, originals) {
 function createManager(source) {
     const { doc, win } = source;
     let cache = new WeakMap(), timer = null;
-    const entries = new Set();
+    const entries = new Set(), subscribers = new Set(), sheetStates = new WeakMap();
+    const isStylesheet = node => node?.nodeType === 1 && node.matches('style, link[rel="stylesheet"]') && !node.hasAttribute(OWN_STYLE);
+    const sheetState = node => node.tagName === 'STYLE' ? [node.media, node.disabled, node.textContent].join('\0')
+        : [node.getAttribute('href'), node.getAttribute('media'), node.disabled, node.getAttribute('rel')].join('\0');
+    for (const node of doc.head?.querySelectorAll('style, link[rel="stylesheet"]') ?? []) {
+        if (isStylesheet(node)) sheetStates.set(node, sheetState(node));
+    }
+    const sheetChanged = node => {
+        if (!isStylesheet(node)) return false;
+        const value = sheetState(node);
+        if (sheetStates.has(node) && sheetStates.get(node) === value) return false;
+        sheetStates.set(node, value);
+        return true;
+    };
     const schedule = () => {
         win.clearTimeout(timer);
-        timer = win.setTimeout(() => { cache = new WeakMap(); entries.forEach(entry => entry.sync()); }, 150);
+        timer = win.setTimeout(() => {
+            timer = null; cache = new WeakMap();
+            entries.forEach(entry => entry.sync());
+            subscribers.forEach(callback => callback());
+        }, 150);
     };
-    const isStylesheet = node => node?.nodeType === 1 && node.matches('style, link[rel="stylesheet"]') && !node.hasAttribute(OWN_STYLE);
     const observer = new win.MutationObserver(mutations => {
-        if (mutations.some(mutation => mutation.type === 'attributes'
-            ? mutation.target === doc.documentElement || mutation.target === doc.body || isStylesheet(mutation.target)
-            : isStylesheet(mutation.target) || isStylesheet(mutation.target.parentElement)
-                || [...mutation.addedNodes, ...mutation.removedNodes].some(isStylesheet))) schedule();
+        let changed = false;
+        for (const mutation of mutations) {
+            if (mutation.type === 'attributes' && (mutation.target === doc.documentElement || mutation.target === doc.body)) {
+                if (mutation.oldValue !== mutation.target.getAttribute(mutation.attributeName)) changed = true;
+            } else {
+                if (sheetChanged(mutation.target) || sheetChanged(mutation.target.parentElement)) changed = true;
+                for (const node of mutation.addedNodes ?? []) if (sheetChanged(node)) changed = true;
+                for (const node of mutation.removedNodes ?? []) if (isStylesheet(node)) { sheetStates.delete(node); changed = true; }
+            }
+        }
+        if (changed) schedule();
     });
-    observer.observe(doc.documentElement, { attributes: true, attributeFilter: ['style', 'class'] });
-    if (doc.body) observer.observe(doc.body, { attributes: true, attributeFilter: ['style', 'class'] });
+    observer.observe(doc.documentElement, { attributes: true, attributeOldValue: true, attributeFilter: ['style', 'class'] });
+    if (doc.body) observer.observe(doc.body, { attributes: true, attributeOldValue: true, attributeFilter: ['style', 'class'] });
     if (doc.head) observer.observe(doc.head, { childList: true, subtree: true, characterData: true,
         attributes: true, attributeFilter: ['href', 'media', 'disabled', 'rel'] });
     const change = event => { if (event.target?.matches?.('#themes, #customCSS')) schedule(); };
-    const load = event => { if (isStylesheet(event.target)) schedule(); };
+    const load = event => {
+        // Browsers also dispatch load when inline style.textContent is assigned
+        // again. That notification must use the same unchanged-content guard.
+        if (isStylesheet(event.target) && (event.target.tagName === 'LINK' || sheetChanged(event.target))) schedule();
+    };
     doc.addEventListener('change', change); doc.addEventListener('input', change); doc.addEventListener('load', load, true);
     win.addEventListener('resize', schedule);
     const manager = {
-        entries,
+        entries, subscribers,
         sample(current) {
             let palette = cache.get(current.drawer);
-            if (!palette) { palette = sampleTheme(current); cache.set(current.drawer, palette); }
+            if (!palette) {
+                const panel = messageManagerTheme(current);
+                try { palette = { ...sampleTheme(current), ...panel }; }
+                catch (error) {
+                    // Optional Canvas/CSSOM state sampling must not prevent a
+                    // readable native panel background from being applied.
+                    palette = panel;
+                    console.warn('[提示词缓存优化] Control theme sampling failed.', error);
+                }
+                cache.set(current.drawer, palette);
+            }
             return palette;
         },
         release(entry) {
             entries.delete(entry);
-            if (entries.size) return;
+            if (entries.size || subscribers.size) return;
             win.clearTimeout(timer); observer.disconnect();
             doc.removeEventListener('change', change); doc.removeEventListener('input', change); doc.removeEventListener('load', load, true);
             win.removeEventListener('resize', schedule); managers.delete(doc);
@@ -348,6 +385,15 @@ function createManager(source) {
     };
     managers.set(doc, manager);
     return manager;
+}
+
+// Layout/cost refreshes share the theme watcher and its unchanged-style filter.
+export function subscribeThemeChanges(documentRef, callback) {
+    if (!documentRef?.body || !documentRef.defaultView?.MutationObserver) return () => {};
+    const source = themeSource(documentRef.body);
+    const manager = managers.get(source.doc) ?? createManager(source);
+    manager.subscribers.add(callback);
+    return () => { manager.subscribers.delete(callback); manager.release(); };
 }
 
 /**
@@ -365,7 +411,7 @@ export function bindExtensionTheme(root, { skipBg = Boolean(root?.closest?.('.dr
     const win = root.ownerDocument.defaultView;
     const originalRoot = new Map(), controls = new Map(), regions = new Map();
     const originalMarker = root.getAttribute(ROOT);
-    let disposed = false, queued = false, frame = null;
+    let disposed = false, updateFrame = null, frame = null, palette = null, needsSync = true;
     root.setAttribute(ROOT, skipBg ? 'embedded' : 'floating');
     root.setAttribute(PENDING, '');
     const collectRegions = () => {
@@ -409,19 +455,21 @@ export function bindExtensionTheme(root, { skipBg = Boolean(root?.closest?.('.dr
     const entry = {
         sync() {
             if (disposed) return;
+            // Closed host drawers do not need selector scans, CSSOM copies or
+            // canvas readbacks. ResizeObserver applies their theme on opening.
+            needsSync = true;
+            if (!root.isConnected || !root.getClientRects().length) return;
             try {
                 const source = themeSource(root);
-                const panel = messageManagerTheme(source);
+                palette = manager.sample(source);
                 // Paint first. Optional control-state sampling cannot prevent
                 // the message manager's background from being applied.
                 if (!skipBg) {
-                    rememberStyle(root, originalRoot, 'background-color', panel.background);
-                    rememberStyle(root, originalRoot, 'color', panel.foreground);
+                    rememberStyle(root, originalRoot, 'background-color', palette.background);
                     for (const key of ['image', 'size', 'position', 'repeat']) {
-                        rememberStyle(root, originalRoot, `background-${key}`, panel[`background-${key}`]);
+                        rememberStyle(root, originalRoot, `background-${key}`, palette[`background-${key}`]);
                     }
                 }
-                const palette = { ...manager.sample(source), ...panel };
                 for (const [key, value] of Object.entries(palette)) rememberStyle(root, originalRoot, `--vertex-paygo-${key}`, value);
                 rememberStyle(root, originalRoot, 'color', 'var(--vertex-paygo-foreground)');
                 if (!skipBg) {
@@ -429,13 +477,16 @@ export function bindExtensionTheme(root, { skipBg = Boolean(root?.closest?.('.dr
                     adaptRegions(palette);
                 }
                 refreshControls();
+                needsSync = false;
             } catch (error) { console.warn('[提示词缓存优化] Theme synchronization failed.', error); }
         },
         destroy() {
             if (disposed) return;
             disposed = true; childObserver.disconnect();
+            visibilityObserver?.disconnect();
             root.removeEventListener('animationend', onAnimationEnd);
             if (frame !== null) win.cancelAnimationFrame(frame);
+            if (updateFrame !== null) win.cancelAnimationFrame(updateFrame);
             root.removeAttribute(PENDING); restoreStyle(root, originalRoot);
             if (originalMarker === null) root.removeAttribute(ROOT); else root.setAttribute(ROOT, originalMarker);
             for (const [node, original] of controls) {
@@ -448,18 +499,30 @@ export function bindExtensionTheme(root, { skipBg = Boolean(root?.closest?.('.dr
         },
     };
     const childObserver = new win.MutationObserver(mutations => {
-        if (queued || disposed) return;
-        const popupChanged = !skipBg && mutations.some(mutation => mutation.type === 'childList'
-            || mutation.target === root || mutation.target.matches?.(FLOATING_SURFACES));
-        queued = true;
-        Promise.resolve().then(() => {
-            queued = false;
-            if (popupChanged && root.isConnected) entry.sync(); else refreshControls();
+        if (updateFrame !== null || disposed) return;
+        // Text updates and disclosure toggles cannot introduce controls. Do not
+        // resample a dialog's palette when its prompt text changes.
+        const relevant = mutations.some(mutation => mutation.type === 'attributes'
+            ? mutation.target === root || mutation.target.matches?.(`${CONTROLS}, ${FLOATING_SURFACES}`)
+            : [...mutation.addedNodes, ...mutation.removedNodes].some(node => node.nodeType === 1));
+        if (!relevant) return;
+        updateFrame = win.requestAnimationFrame(() => {
+            updateFrame = null;
+            if (disposed || !root.isConnected || !root.getClientRects().length) return;
+            if (needsSync || !palette) entry.sync();
+            else {
+                refreshControls();
+                if (!skipBg) { collectRegions(); adaptRegions(palette); }
+            }
         });
     });
     childObserver.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'open'] });
     const onAnimationEnd = event => { if (!skipBg && event.target === root) entry.sync(); };
     root.addEventListener('animationend', onAnimationEnd);
+    const visibilityObserver = win.ResizeObserver ? new win.ResizeObserver(() => {
+        if (needsSync && root.isConnected && root.getClientRects().length) entry.sync();
+    }) : null;
+    visibilityObserver?.observe(root);
     manager.entries.add(entry); entry.sync();
     frame = win.requestAnimationFrame(() => {
         frame = null;

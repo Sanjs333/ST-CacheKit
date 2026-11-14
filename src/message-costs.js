@@ -85,7 +85,7 @@ export function createMessageCosts({
     }
 
     function bind(entry, messageId) {
-        if (!entryIsCurrent(entry) || entry.message || entry.session !== generation?.session) return false;
+        if (entry.message || entry.session !== generation?.session || !entryIsCurrent(entry)) return false;
         const context = getContext();
         const message = context.chat[entry.index];
         if (messageId !== undefined && messageId !== entry.index) return false;
@@ -242,7 +242,8 @@ export function createMessageCosts({
         task.promise = (async () => {
             let updated = false;
             try {
-                const result = await serverClient.readUsage(chatId);
+                const ids = [...new Set(Array.from(refreshableRequests(), request => request.id))];
+                const result = await serverClient.readUsage(chatId, { ids });
                 if (destroyed || epoch !== task.epoch || liveChat() !== chatId) return;
                 if (!result?.ok) throw new Error('用量数据不可用');
                 const records = new Map((result.records ?? []).filter(record => record.chatId === chatId).map(record => [record.id, record]));

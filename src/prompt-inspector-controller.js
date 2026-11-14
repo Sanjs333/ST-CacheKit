@@ -3,6 +3,7 @@ import { completionIdentity } from './worldinfo-stability.js';
 import { createPromptInspectorSessionStore } from './prompt-inspector-session.js';
 import { canonicalHistoryId, describePromptSource } from './prompt-inspector-sources.js';
 import { createConversationId } from './cost-context.js';
+import { createTraceBudget } from './trace-budget.js';
 export const PROMPT_INSPECTOR_FIELD = '__vertexPayGoPromptInspector';
 const validSource = value => typeof value === 'string' && /^[A-Za-z][A-Za-z0-9_-]{0,63}$/u.test(value);
 const GOOGLE = new Set(['vertexai', 'makersuite']);
@@ -61,6 +62,7 @@ export function createPromptInspectorController({ context, getContext = () => co
     let restorePending = true, restoration = null, restoredRecord = false;
     let persistence = { status: 'empty' };
     let trace = emptyTrace(), promptRefs = [], sourceIndex = new Map(), stageIndex = new Map(), capabilitySerial = 0;
+    let traceBudget = createTraceBudget(trace, LIMIT.traceBytes);
     const publicCaptureAvailable = typeof context?.eventTypes?.GENERATION_STARTED === 'string'
         && typeof context?.eventSource?.on === 'function' && typeof context?.eventSource?.removeListener === 'function';
     function emptyTrace() { return { version: 1, complete: false, reason: 'PUBLIC_EVENT_CAPTURE', sources: [], stages: [], events: [] }; }
@@ -85,7 +87,8 @@ export function createPromptInspectorController({ context, getContext = () => co
     const emit = () => { for (const fn of listeners) { try { fn(); } catch { /* UI cannot affect evidence. */ } } };
     const fail = code => { error = { code, message: (INFO[code] ?? INFO.RECORD_UNAVAILABLE)
         + (record ? ' 已保留上一轮提示词。' : '') }; status = 'error'; emit(); };
-    function resetTrace() { trace = emptyTrace(); sourceIndex = new Map(); stageIndex = new Map(); promptRefs = []; }
+    function resetTrace() { trace = emptyTrace(); traceBudget = createTraceBudget(trace, LIMIT.traceBytes);
+        sourceIndex = new Map(); stageIndex = new Map(); promptRefs = []; }
     function cancelReservation(value) {
         if (!value) return;
         value.cancelled = true;
@@ -168,38 +171,36 @@ export function createPromptInspectorController({ context, getContext = () => co
     function addSource(value) {
         if (!active() || typeof value?.text !== 'string' || !value.text.length) return;
         try {
-            if (bytes(value.text) > LIMIT.traceBytes) { incomplete('SOURCE_LIMIT'); return; }
-            const existing = sourceIndex.get(value.id), next = clone(value);
-            const sources = existing ? trace.sources.map(source => source.id === next.id ? next : source) : [...trace.sources, next];
-            if (sources.length > LIMIT.sources || !fits({ ...trace, sources })) { incomplete('SOURCE_LIMIT'); return; }
-            trace.sources = sources; sourceIndex.set(next.id, next);
+            if (value.text.length > LIMIT.traceBytes) { incomplete('SOURCE_LIMIT'); return; }
+            const next = traceBudget.put('sources', value.id, value, LIMIT.sources);
+            if (!next) { incomplete('SOURCE_LIMIT'); return; }
+            sourceIndex.set(next.id, next);
         } catch { incomplete('SOURCE_UNAVAILABLE'); }
     }
     function addEvent(value) {
         if (trace.events.length >= LIMIT.events) { incomplete('EVENT_LIMIT'); return; }
         const next = { ...value, evidence: 'observed' };
-        if (fits({ ...trace, events: [...trace.events, next] })) trace.events.push(clone(next)); else incomplete('EVENT_LIMIT');
+        if (!traceBudget.put('events', trace.events.length, next, LIMIT.events)) incomplete('EVENT_LIMIT');
     }
     function captureStage(id, messages, preparedPrompts) {
         if (!active() || !Array.isArray(messages)) return;
         try {
-            if (id === 'post-plugin') for (const prompt of preparedPrompts?.collection ?? promptRefs) {
-                const source = sourceIndex.get('prompt:' + prompt.identifier);
+            if (id === 'post-plugin') {
                 const texts = messages.flatMap(message => typeof message?.content === 'string' ? [message.content]
                     : (Array.isArray(message?.content) ? message.content.filter(part => part?.type === 'text' && typeof part.text === 'string').map(part => part.text) : []));
-                if (source && typeof prompt.content === 'string' && source.text !== prompt.content
-                    && texts.some(text => prompt.content && text.includes(prompt.content)))
-                    addSource({ ...source, originalText: source.originalText ?? source.text, text: prompt.content });
+                for (const prompt of preparedPrompts?.collection ?? promptRefs) {
+                    const source = sourceIndex.get('prompt:' + prompt.identifier);
+                    if (source && typeof prompt.content === 'string' && source.text !== prompt.content
+                        && texts.some(text => prompt.content && text.includes(prompt.content)))
+                        addSource({ ...source, originalText: source.originalText ?? source.text, text: prompt.content });
+                }
             }
             const labels = { assembled: '酒馆组装结果（已接受的消息）', 'post-plugin': '插件处理后的前端消息',
                 'prompt-ready': '提示词就绪事件（前端）', 'frontend-final': '酒馆前端最终消息',
                 'settings-ready': '请求参数就绪事件（前端）', 'frontend-request': '进入后端前的消息' };
-            const serialized = JSON.stringify(messages);
-            if (serialized.length > LIMIT.traceBytes || bytes(serialized) > LIMIT.traceBytes) { incomplete('STAGE_LIMIT'); return; }
-            const stage = { id, label: labels[id] ?? id, messages: JSON.parse(serialized), complete: true };
-            const stages = stageIndex.has(id) ? trace.stages.map(v => v.id === id ? stage : v) : [...trace.stages, stage];
-            if (stages.length > LIMIT.stages || !fits({ ...trace, stages })) { incomplete('STAGE_LIMIT'); return; }
-            trace.stages = stages; stageIndex.set(id, stage);
+            const stage = traceBudget.put('stages', id, { id, label: labels[id] ?? id, messages, complete: true }, LIMIT.stages);
+            if (!stage) { incomplete('STAGE_LIMIT'); return; }
+            stageIndex.set(id, stage);
         } catch { incomplete('STAGE_UNAVAILABLE'); }
     }
     const observer = {
