@@ -285,6 +285,14 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         listen(s, node, 'click', fn, dynamic);
         return node;
     };
+    const tabLabel = (node, id, label) => {
+        const compact = ({ final: '正文', sources: '来源', compare: '对比', raw: 'JSON' })[id] ?? label;
+        if (!node.querySelector('i') && node.querySelector('.vertex-paygo-pi-label-wide')?.textContent !== label) {
+            node.replaceChildren(make('span', 'vertex-paygo-pi-label-wide', label),
+                make('span', 'vertex-paygo-pi-label-compact', compact));
+        }
+        node.setAttribute('aria-label', label); node.title = label;
+    };
     function disposeSession(s) {
         if (session !== s) return;
         session = null;
@@ -297,7 +305,8 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         s.sources?.clear(); s.diffs.clear();
         s.cachedRecord = null; s.cachedKey = null; s.cachedView = null;
         for (const node of [s.panel, s.sidebar, s.metadata, s.notice, s.chips, s.empty, s.feedback]) node?.replaceChildren();
-        s.targets.clear(); s.collapsed.clear(); s.expandedSources.clear(); s.sourcePreviews = [];
+        doc.defaultView.cancelAnimationFrame(s.sourceScrollFrame);
+        s.targets.clear(); s.textTargets.clear(); s.collapsed.clear(); s.expandedSources.clear(); s.sourcePreviews = [];
         launch.focus?.();
     }
     function close(s) {
@@ -318,7 +327,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             tab: 'final', query: '', category: 'all', selected: null, collapsed: new Set(),
             expandedSources: new Set(), sourcePreviews: [], sourceGroupId: 0, sourceCompact: sourceViewport?.matches === true,
             frontend: !nativeLog && readState().captureKind === 'frontend-messages',
-            targets: new Map(), busy: '', compact: compactViewport?.matches === true,
+            targets: new Map(), textTargets: new Map(), sourceScrollFrame: 0, busy: '', compact: compactViewport?.matches === true,
             drawer: !nativeLog && compactViewport?.matches !== true, before: '', after: '',
             cachedRecord: null, cachedKey: null, cachedView: null, diffs: new Map() };
         s.root = make('section', 'vertex-paygo-prompt-inspector', undefined,
@@ -362,6 +371,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
                 ['raw', s.frontend ? '前端消息 JSON' : '原始请求']];
         for (const [id, label] of viewTabs) {
             const node = button(s, label, `tab-${id}`, () => switchTab(s, id));
+            tabLabel(node, id, label);
             node.setAttribute('role', 'tab'); node.setAttribute('id', `${prefix}-tab-${id}`);
             node.setAttribute('aria-controls', `${prefix}-panel`);
             listen(s, node, 'keydown', event => {
@@ -501,6 +511,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
                 { 'data-pi-source-ids': JSON.stringify(ids) });
             if (ids.length) span.setAttribute('title', ids.map(id => sourceLabel(s.sources.get(id))).join(' · '));
             if (ids.includes(s.selected)) span.setAttribute('data-selected', 'true');
+            for (const id of ids) if (!s.textTargets.has(id)) s.textTargets.set(id, span);
             markText(s, span, value.slice(start, end)); node.append(span);
         }
         return node;
@@ -567,9 +578,11 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             s.expandedSources.has(key) ? s.expandedSources.delete(key) : s.expandedSources.add(key);
             schedule();
         }, true));
-        toggle.className = 'vertex-paygo-pi-source-tag vertex-paygo-pi-sources-toggle';
+        toggle.className = 'vertex-paygo-icon-button vertex-paygo-log-tool vertex-paygo-pi-sources-toggle';
+        const icon = make('i', 'fa-solid fa-chevron-down', undefined, { 'aria-hidden': 'true' });
+        toggle.replaceChildren(icon);
         toggle.setAttribute('aria-controls', list.id);
-        controls.append(make('small', 'vertex-paygo-pi-muted', `来源 ${sourceCount} 项`), toggle);
+        controls.append(make('small', 'vertex-paygo-pi-muted', `来源 ${sourceCount} 项`));
         group.append(list, controls);
         const win = doc.defaultView;
         let frame = 0, ended = false;
@@ -587,10 +600,12 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             const expanded = s.expandedSources.has(key);
             if (s.sourceCompact && !expanded) for (const entry of entries.slice(cutoff)) entry.hidden = true;
             controls.hidden = !s.sourceCompact || cutoff === entries.length;
+            toggle.hidden = controls.hidden;
             const remaining = entries.slice(cutoff).filter(entry => entry.hasAttribute('data-pi-source')).length;
-            toggle.textContent = expanded ? '收起来源' : remaining ? `展开其余 ${remaining} 项` : '展开全部';
+            icon.className = `fa-solid ${expanded ? 'fa-chevron-up' : 'fa-chevron-down'}`;
             toggle.setAttribute('aria-expanded', String(expanded));
-            const label = `${expanded ? '收起' : '展开'}此消息的全部 ${sourceCount} 项来源`;
+            const label = expanded ? `收起此消息的 ${sourceCount} 项来源`
+                : remaining ? `展开其余 ${remaining} 项来源，共 ${sourceCount} 项` : '展开全部来源';
             toggle.setAttribute('aria-label', label); toggle.title = label;
         };
         const schedule = () => {
@@ -603,10 +618,11 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         s.sourcePreviews.push(schedule);
         s.dynamic.push(() => { ended = true; win.cancelAnimationFrame(frame); observer?.disconnect(); });
         schedule();
-        return group;
+        return { group, toggle };
     }
     function navigateSource(s, id, { toggle = false } = {}) {
         if (!s.sources.has(id)) return;
+        doc.defaultView.cancelAnimationFrame(s.sourceScrollFrame); s.sourceScrollFrame = 0;
         if (toggle && s.selected === id) {
             s.selected = null;
             renderContent(s);
@@ -628,8 +644,21 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         s.collapsed.delete(`source-${id}`);
         renderContent(s);
         s.panel.scrollTop = 0;
-        const target = s.targets.get(id);
-        if (target) { target.scrollIntoView?.({ block: 'nearest', behavior: 'auto' }); target.focus?.({ preventScroll: true }); }
+        const tab = s.tab;
+        // Source previews settle before scrolling, so expanded labels cannot move the target afterward.
+        s.sourceScrollFrame = doc.defaultView.requestAnimationFrame(() => {
+            s.sourceScrollFrame = 0;
+            if (session !== s || s.selected !== id || s.tab !== tab) return;
+            const textTarget = s.textTargets.get(id);
+            const target = textTarget ?? s.targets.get(id);
+            if (!target || !s.panel.contains(target) || !target.getClientRects().length) return;
+            const padding = parseFloat(doc.defaultView.getComputedStyle(s.panel).scrollPaddingTop) || 12;
+            const top = s.panel.scrollTop + target.getBoundingClientRect().top - s.panel.getBoundingClientRect().top - padding;
+            if (typeof s.panel.scrollTo === 'function') s.panel.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
+            else s.panel.scrollTop = Math.max(0, top);
+            if (textTarget) target.setAttribute('tabindex', '-1');
+            target.focus?.({ preventScroll: true });
+        });
         notify(s, located.length ? `已定位「${sourceLabel(s.sources.get(id))}」的发送正文。`
             : `正在查看「${sourceLabel(s.sources.get(id))}」的来源内容。`);
     }
@@ -656,8 +685,11 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         const copyMessage = headerAction(button(s, '复制消息文本', 'copy-message', () => copy(s, messageText(message), '消息文本'), true));
         copyMessage.disabled = !plainText.length;
         heading.append(make('span', 'vertex-paygo-pi-order', String(index + 1).padStart(3, '0')),
-            identity, make('code', 'vertex-paygo-pi-path', text(message.path), { title: text(message.path) }), copyMessage);
-        if (labels.children.length) heading.append(sourcePreview(s, labels, `${scope}-${message.id}`, refs.ids.size, headerAction));
+            identity, make('code', 'vertex-paygo-pi-path', text(message.path), { title: text(message.path) }));
+        const preview = labels.children.length ? sourcePreview(s, labels, `${scope}-${message.id}`, refs.ids.size, headerAction) : null;
+        if (preview) heading.append(preview.toggle);
+        heading.append(copyMessage);
+        if (preview) heading.append(preview.group);
         heading.append(make('span', 'vertex-paygo-pi-excerpt', excerpt(plainText.replace(/\s+/gu, ' ')) || '结构化内容'));
         const card = disclosure(s, `${scope}-${message.id}`, heading, 'vertex-paygo-pi-message');
         card.setAttribute('data-pi-message-id', text(message.id)); card.setAttribute('data-pi-role', text(message.role)); card.setAttribute('tabindex', '-1');
@@ -937,7 +969,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         s.messageRefs = new WeakMap();
         s.queryLower = s.query.toLocaleLowerCase();
         const focusedSearch = doc.activeElement === s.search;
-        for (const dispose of s.dynamic) dispose(); s.dynamic = []; s.disclosures = []; s.targets.clear(); s.sourcePreviews = []; s.sourceGroupId = 0;
+        for (const dispose of s.dynamic) dispose(); s.dynamic = []; s.disclosures = []; s.targets.clear(); s.textTargets.clear(); s.sourcePreviews = []; s.sourceGroupId = 0;
         s.panel.replaceChildren(); s.sidebar.replaceChildren(); s.chips.replaceChildren();
         for (const [id, tab] of s.tabs) { tab.setAttribute('aria-selected', String(id === s.tab)); tab.setAttribute('tabindex', id === s.tab ? '0' : '-1'); }
         s.panel.setAttribute('aria-labelledby', `${prefix}-tab-${s.tab}`);
@@ -1065,8 +1097,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         if (!nativeLog) {
             for (const [id, label] of [['final', s.frontend ? frontendRecordLabel(record) : '最终发送'], ['raw', s.frontend ? recordName(s) : '原始请求']]) {
                 const tab = s.tabs.get(id);
-                if (!tab.querySelector('i')) tab.textContent = label;
-                tab.setAttribute('aria-label', label); tab.setAttribute('title', label);
+                tabLabel(tab, id, label);
             }
             s.copyText.setAttribute('title', '复制全部文本，不含媒体、角色或来源标签');
         }
@@ -1134,7 +1165,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             s.sources = new Map(asArray(s.view.sources).filter(source => source && typeof source.id === 'string').map(source => [source.id, source]));
             if (parseFailure) s.tab = 'raw'; renderContent(s);
         } else {
-            for (const dispose of s.dynamic) dispose(); s.dynamic = []; s.disclosures = []; s.targets.clear(); s.sourcePreviews = [];
+            for (const dispose of s.dynamic) dispose(); s.dynamic = []; s.disclosures = []; s.targets.clear(); s.textTargets.clear(); s.sourcePreviews = [];
             s.panel.replaceChildren(); s.sidebar.replaceChildren(); s.chips.replaceChildren(); s.sources = new Map();
             updateFoldToggle(s);
             s.empty.replaceChildren(); s.counter.textContent = nativeLog ? '没有日志正文' : '没有保留的提示词';
