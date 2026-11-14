@@ -244,7 +244,7 @@ export function createMessageCosts({
             try {
                 const result = await serverClient.readUsage(chatId);
                 if (destroyed || epoch !== task.epoch || liveChat() !== chatId) return;
-                if (!result?.ok) throw new Error('Usage is unavailable');
+                if (!result?.ok) throw new Error('用量数据不可用');
                 const records = new Map((result.records ?? []).filter(record => record.chatId === chatId).map(record => [record.id, record]));
                 for (const request of refreshableRequests()) {
                     const record = records.get(request.id);

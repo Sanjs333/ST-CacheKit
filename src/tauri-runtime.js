@@ -21,7 +21,7 @@ export function assertTauriCapabilities(context, platform) {
         || typeof platform?.api?.llmConnections?.save !== 'function'
         || !['setJson', 'listKeys'].every(key => typeof store?.[key] === 'function')
         || (typeof store?.tryGetJson !== 'function' && typeof store?.getJson !== 'function')) {
-        const error = new Error('TauriTavern native parameter and extension storage APIs are required (tested with 2.3.0).');
+        const error = new Error('需要 TauriTavern 原生参数与扩展存储接口，已在 2.3.0 版本验证。');
         error.code = 'TAURI_CAPABILITIES_UNAVAILABLE';
         throw error;
     }
@@ -34,7 +34,7 @@ async function waitForControls(documentRef) {
     if (available()) return;
     await new Promise((resolve, reject) => {
         const observer = new MutationObserver(() => { if (available()) finish(); });
-        const timer = setTimeout(() => finish(new Error('TauriTavern extension controls are unavailable.')), 10_000);
+        const timer = setTimeout(() => finish(new Error('TauriTavern 扩展控件不可用。')), 10_000);
         function finish(error) { clearTimeout(timer); observer.disconnect(); error ? reject(error) : resolve(); }
         observer.observe(documentRef.documentElement, { childList: true, subtree: true });
     });
@@ -49,7 +49,7 @@ export async function initTauriTavern({ target = globalThis, documentRef = targe
     let context;
     try { context = getContext(); }
     catch (cause) {
-        const error = new Error('TauriTavern extension context is unavailable.', { cause });
+        const error = new Error('TauriTavern 扩展运行上下文不可用。', { cause });
         error.code = 'TAURI_CAPABILITIES_UNAVAILABLE';
         throw error;
     }
@@ -180,7 +180,7 @@ export async function initTauriTavern({ target = globalThis, documentRef = targe
                     const chatId = costs.captureUsageContext();
                     const stableChatId = await chatApi?.open?.(frozenRef)?.stableId?.();
                     if (JSON.stringify(chatApi?.current?.ref?.()) !== JSON.stringify(frozenRef)
-                        || costs.captureUsageContext() !== chatId) throw Object.assign(new Error('Agent chat changed.'), { code: 'AGENT_SCOPE_CHANGED' });
+                        || costs.captureUsageContext() !== chatId) throw Object.assign(new Error('Agent 对话已变化。'), { code: 'AGENT_SCOPE_CHANGED' });
                     return { chatRef: frozenRef, stableChatId, chatId };
                 },
                 getOwnerKey: () => {

@@ -42,7 +42,7 @@ export function installNativeOutletEvidence({ macros, getExtensionPrompts = () =
     function wrap(object, key, makeWrapper) {
         const original = object[key], descriptor = Object.getOwnPropertyDescriptor(object, key), wrapper = makeWrapper(original);
         if (descriptor && (!('value' in descriptor) || !descriptor.configurable || !descriptor.writable)
-            || !descriptor && !Object.isExtensible(object)) throw new TypeError('Unknown public macro method');
+            || !descriptor && !Object.isExtensible(object)) throw new TypeError('无法识别公开的宏处理接口');
         restorers.push(() => {
             if (object[key] !== wrapper) return;
             if (descriptor) Object.defineProperty(object, key, descriptor); else delete object[key];
@@ -247,7 +247,7 @@ export function installNativeOutletEvidence({ macros, getExtensionPrompts = () =
     }
     return {
         capture({ templateText, records, constants, extensionPrompts } = {}, invokeNativePrepare) {
-            if (typeof invokeNativePrepare !== 'function') throw new TypeError('A native prepare callback is required');
+            if (typeof invokeNativePrepare !== 'function') throw new TypeError('缺少原生请求准备回调');
             if (!enabled || destroyed || typeof templateText !== 'string' || size(templateText) > LIMIT.bytes
                 || !Array.isArray(records) || records.length > LIMIT.records || !records.every(safeRecord)
                 || records.reduce((sum, entry) => sum + size(own(entry, 'text')), 0) > LIMIT.bytes) return { result: invokeNativePrepare(), proofs: [] };

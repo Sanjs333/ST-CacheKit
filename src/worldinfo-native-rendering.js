@@ -233,7 +233,7 @@ export function preserveNativeWorldInfoRendering({ entries, records, regex, getC
                 } finally { insideRenderer = false; }
                 if (ownData(regex.regex_placement, 'WORLD_INFO')?.value !== placement.value || !armSkip()) {
                     failed = true; finish({ publish: false });
-                    throw new TypeError('World-info regex settings were replaced during their native rendering');
+                    throw new TypeError('世界书正则设置在原生渲染期间发生变化');
                 }
                 pendingSkip = true;
                 enqueue();
@@ -248,7 +248,7 @@ export function preserveNativeWorldInfoRendering({ entries, records, regex, getC
             Object.defineProperty(source.entry, 'content', { configurable: source.content.configurable,
                 enumerable: source.content.enumerable, get: getter,
                 ...(source.content.writable ? { set(value) {
-                    if (Object.isFrozen(source.entry)) throw new TypeError('Cannot assign frozen world-info content');
+                    if (Object.isFrozen(source.entry)) throw new TypeError('无法修改只读的世界书内容');
                     source.content.value = value;
                 } } : {}) });
         }

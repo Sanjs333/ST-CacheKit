@@ -123,6 +123,7 @@ export async function init() {
         const serverClient = createServerClient({
             fetchImpl: globalThis.fetch.bind(globalThis),
             getRequestHeaders: context.getRequestHeaders,
+            localize,
         });
         clientLogger = createClientLogger({
             sendEntry: entry => serverClient.writeClientLog(entry),

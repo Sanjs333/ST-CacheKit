@@ -19,15 +19,15 @@ function dataCopy(value, budget = { bytes: 0, nodes: 0 }, depth = 0, seen = new 
     }
     if (value === null || value === undefined || typeof value === 'boolean') return value;
     if (typeof value === 'number' && Number.isFinite(value)) return value;
-    if (!value || typeof value !== 'object' || seen.has(value)) throw new TypeError('Unknown Agent assembly evidence.');
+    if (!value || typeof value !== 'object' || seen.has(value)) throw new TypeError('无法识别 Agent 提示词组装记录。');
     const array = Array.isArray(value), prototype = Object.getPrototypeOf(value);
     if (!array && prototype !== null && Object.getOwnPropertyDescriptor(prototype, 'constructor')?.value?.name !== 'Object')
-        throw new TypeError('Unknown Agent assembly evidence object.');
+        throw new TypeError('无法识别 Agent 提示词组装记录对象。');
     seen.add(value);
     const copy = array ? [] : {};
     for (const [key, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(value))) {
         if (!descriptor.enumerable) continue;
-        if (!('value' in descriptor)) throw new TypeError('Unknown Agent assembly accessor.');
+        if (!('value' in descriptor)) throw new TypeError('无法识别 Agent 提示词组装读取接口。');
         budget.bytes += key.length;
         Object.defineProperty(copy, key, { value: dataCopy(descriptor.value, budget, depth + 1, seen),
             enumerable: true, configurable: true, writable: true });
@@ -53,7 +53,7 @@ function observationSettings(value) {
 }
 function capturedInput(request) {
     const frozen = own(request, 'frozenRunInputSnapshot') ?? own(request, 'frozen_run_input_snapshot');
-    if (!object(frozen)) throw new TypeError('Captured Agent frozen input unavailable.');
+    if (!object(frozen)) throw new TypeError('捕获的 Agent 初始输入不可用。');
     const capturedFrozen = {};
     for (const field of ['schemaVersion', 'kind', 'generationType', 'contextKind', 'promptInputs', 'worldInfoActivation']) {
         const value = own(frozen, field);
@@ -116,7 +116,7 @@ export function installTauriAgentAssembly({ target = globalThis, getPromptMigrat
     const restorers = [];
     function wrap(owner, key, create) {
         const previous = Object.getOwnPropertyDescriptor(owner, key), method = previous?.value;
-        if (typeof method !== 'function') throw new TypeError('Shipped Agent prompt method unavailable: ' + key);
+        if (typeof method !== 'function') throw new TypeError('Agent 提示词接口不可用：' + key);
         const wrapped = create(method);
         Object.defineProperty(owner, key, { ...previous, value: wrapped });
         restorers.push(() => { if (owner[key] === wrapped) Object.defineProperty(owner, key, previous); });
@@ -152,7 +152,7 @@ export function installTauriAgentAssembly({ target = globalThis, getPromptMigrat
             const Message = value?.openAi?.Message, ChatCompletion = value?.openAi?.ChatCompletion;
             const prototype = value?.PromptManager?.prototype;
             if (!prototype || !Message || !ChatCompletion || typeof value.toAgentModelMessage !== 'function'
-                || typeof value.projectAgentPromptInputs !== 'function') throw new TypeError('Agent assembly modules unavailable.');
+                || typeof value.projectAgentPromptInputs !== 'function') throw new TypeError('Agent 提示词组装模块不可用。');
             const start = restorers.length;
             try {
                 wrap(prototype, 'preparePrompt', native => function (template, ...rest) {
@@ -254,11 +254,11 @@ export function installTauriAgentAssembly({ target = globalThis, getPromptMigrat
             try {
                 if (destroyed || job.ambiguous || job.limited || job.inputUnavailable || !job.manager || !job.completion
                     || !Array.isArray(frontendMessages) || !object(snapshot) || !Array.isArray(own(snapshot, 'messages')))
-                    throw new TypeError('Agent assembly source observations unavailable.');
+                    throw new TypeError('Agent 提示词来源记录不可用。');
                 const frozen = own(capturedRequest, 'frozenRunInputSnapshot') ?? own(capturedRequest, 'frozen_run_input_snapshot');
                 const projectedInputs = nativeModules.projectAgentPromptInputs(own(frozen, 'promptInputs'), own(snapshot, 'contextPolicy'));
                 const originalCanonical = frontendMessages.map(nativeModules.toAgentModelMessage);
-                if (!equalData(originalCanonical, snapshot.messages)) throw new TypeError('Agent payload differs from captured native frame.');
+                if (!equalData(originalCanonical, snapshot.messages)) throw new TypeError('Agent 请求内容与捕获的原生记录不一致。');
                 observation = { manager: job.manager, completion: job.completion, promptCollection: job.promptCollection,
                     collectionArgs: job.collectionArgs, prepared: job.prepared, messageEvents: job.messageEvents,
                     createdMessages: job.createdMessages, reservations: job.reservations,
@@ -276,15 +276,15 @@ export function installTauriAgentAssembly({ target = globalThis, getPromptMigrat
                     },
                     isMessageFromThisAssembly: message => observedMessages.get(message) === job.id };
                 const migration = getPromptMigration();
-                if (typeof migration?.adaptAgentAssembly !== 'function') throw new TypeError('Agent migration adapter unavailable.');
+                if (typeof migration?.adaptAgentAssembly !== 'function') throw new TypeError('Agent 提示词搬迁接口不可用。');
                 const originalSnapshot = dataCopy(snapshot), originalFrozen = own(result, 'frozenRunInputSnapshot');
                 const originalSettings = dataCopy(observationSettings(job.manager.serviceSettings));
                 adapted = await migration.adaptAgentAssembly({ request: capturedRequest, result, observation });
                 if (observation.isCurrent() && adapted && Array.isArray(adapted.messages)) {
                     if (!equalData(originalSnapshot, snapshot) || originalFrozen !== own(result, 'frozenRunInputSnapshot'))
-                        throw new TypeError('Agent adapter mutated the native snapshot.');
+                        throw new TypeError('Agent 搬迁接口改动了原生快照。');
                     if (!equalData(originalSettings, observationSettings(job.manager.serviceSettings)))
-                        throw new TypeError('Agent assembly settings changed during adaptation.');
+                        throw new TypeError('Agent 提示词组装设置在适配期间发生变化。');
                     const messages = adapted.messages.map(nativeModules.toAgentModelMessage);
                     dataCopy(messages); // Reject unknown/accessor-backed replacement evidence.
                     next = replaceMessages(result, snapshot, messages, observation.contextKind === 'session' ? undefined : adapted.tokenCounts);

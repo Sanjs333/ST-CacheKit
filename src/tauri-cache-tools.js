@@ -61,7 +61,7 @@ export function stabilizeTauriActivatedWorldInfo(entries) {
             for (const [key, entry] of result) entries.set(key, entry);
             const stored = mapEntries(entries);
             if (stored.length !== result.length || stored.some(([key, entry], index) => key !== result[index][0] || entry !== result[index][1])) {
-                throw new Error('Map write was not applied');
+                throw new Error('设置写入未生效');
             }
         } catch {
             Map.prototype.clear.call(entries);

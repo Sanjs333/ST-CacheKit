@@ -177,7 +177,7 @@ export function createCacheDiagnosticsUi({ serverClient, getChatId, context, doc
             try {
                 const result = await serverClient.readUsage(chatId, { includeRequestPreviews: true, latest: 12 });
                 if (destroyed || task.epoch !== epoch || getChatId() !== chatId) return;
-                if (result?.ok !== true || !Array.isArray(result.records)) throw new Error('Usage unavailable');
+                if (result?.ok !== true || !Array.isArray(result.records)) throw new Error('用量数据不可用');
                 views = buildCacheDiagnostics(result.records.filter(record => record?.chatId === chatId));
                 if (followLatest || !views.some(view => view.id === selected)) selected = views[0]?.id ?? null;
                 state = 'ready';

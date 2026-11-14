@@ -179,10 +179,10 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
     clipboard = globalThis.navigator?.clipboard, presentation = 'outbound' } = {}) {
     if (typeof documentRef?.createElement !== 'function'
         || (mountPoint !== undefined && typeof mountPoint?.append !== 'function')) {
-        throw new TypeError('A document and an optional valid mount point are required.');
+        throw new TypeError('页面文档或指定的挂载位置不可用。');
     }
     if (typeof controller?.snapshot !== 'function' || typeof controller?.subscribe !== 'function') {
-        throw new TypeError('A prompt inspector controller is required.');
+        throw new TypeError('缺少提示词查看控制器。');
     }
     const doc = documentRef;
     const nativeLog = presentation === 'tauri-log';
@@ -271,7 +271,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
     const copy = async (s, value, label) => {
         if (disposed || session !== s || typeof value !== 'string') return;
         try {
-            if (typeof clipboard?.writeText !== 'function') throw new Error('clipboard');
+            if (typeof clipboard?.writeText !== 'function') throw new Error('剪贴板不可用');
             // No role/source labels, pretty-printing or normalization of raw bytes.
             await clipboard.writeText(value);
             notify(s, `已复制${label}。`);

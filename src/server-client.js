@@ -20,15 +20,17 @@ import {
     REQUIRED_TRANSPORT,
     SERVER_ROUTES,
 } from './constants.js';
+import { createLocalizer, localizeError } from './i18n.js';
 
 export class ServerPluginError extends Error {
-    constructor(message, { code = 'SERVER_PLUGIN_ERROR', status, serverCode, responseFormat, cause } = {}) {
+    constructor(message, { code = 'SERVER_PLUGIN_ERROR', status, serverCode, responseFormat, details, cause } = {}) {
         super(message, { cause });
         this.name = 'ServerPluginError';
         this.code = code;
         this.status = status;
         this.serverCode = serverCode;
         this.responseFormat = responseFormat;
+        if (details && typeof details === 'object' && !Array.isArray(details)) this.details = details;
     }
 }
 
@@ -37,7 +39,7 @@ export function parseLoopbackProxyUrl(value) {
     try {
         url = new URL(String(value));
     } catch (cause) {
-        throw new ServerPluginError('Server Plugin returned an invalid proxy URL.', {
+        throw new ServerPluginError('后端插件返回了无效的代理地址。', {
             code: 'INVALID_PROXY_URL',
             cause,
         });
@@ -56,7 +58,7 @@ export function parseLoopbackProxyUrl(value) {
         || url.search
         || url.hash
     ) {
-        throw new ServerPluginError('Server Plugin proxy URL is not an authenticated loopback HTTP endpoint.', {
+        throw new ServerPluginError('后端代理地址必须是经过认证的本地 HTTP 回环端点。', {
             code: 'UNSAFE_PROXY_URL',
         });
     }
@@ -70,7 +72,7 @@ const NATIVE_SOURCES = new Set(['openai', 'claude', 'custom']);
 
 function validateNativePreparation(data, source) {
     const invalid = () => {
-        const error = new ServerPluginError('Server Plugin returned an invalid native relay preparation.', { code: 'INVALID_NATIVE_PREPARE' });
+        const error = new ServerPluginError('后端插件返回了无效的原生请求准备信息。', { code: 'INVALID_NATIVE_PREPARE' });
         if (typeof data?.ticket === 'string' && /^[A-Za-z0-9_-]{16,128}$/u.test(data.ticket)) error.nativeTicket = data.ticket;
         throw error;
     };
@@ -142,16 +144,18 @@ async function readHttpError(response) {
         // An unreadable error body must not hide the HTTP failure status.
     }
     if (response.status === 403 && /\bInvalid CSRF token\b/iu.test(text)) {
-        return new ServerPluginError('SillyTavern rejected the CSRF token (HTTP 403). Refresh the page and try again.', {
+        return new ServerPluginError('SillyTavern 拒绝了 CSRF 令牌（HTTP 403），请刷新页面后重试。', {
             code: 'CSRF_REJECTED', status: response.status,
         });
     }
-    const message = typeof data?.message === 'string' && data.message.trim()
-        ? data.message : `Server Plugin request failed (HTTP ${response.status}); no JSON error details were returned.`;
+    const payload = data?.error && typeof data.error === 'object' ? data.error : data;
+    const message = typeof payload?.message === 'string' && payload.message.trim()
+        ? payload.message : `后端插件请求失败（HTTP ${response.status}），未返回 JSON 错误详情。`;
     return new ServerPluginError(message, {
         code: 'HTTP_ERROR', status: response.status,
-        serverCode: typeof data?.code === 'string' ? data.code : undefined,
+        serverCode: typeof payload?.code === 'string' ? payload.code : undefined,
         responseFormat: data === undefined ? 'non-json' : 'json',
+        details: payload?.details,
     });
 }
 
@@ -167,7 +171,7 @@ async function fetchJson(fetchImpl, url, options, timeoutMs) {
             data = await response.json();
         } catch (cause) {
             if (cause?.name === 'AbortError') throw cause;
-            throw new ServerPluginError('Server Plugin returned a non-JSON response.', {
+            throw new ServerPluginError('后端插件返回了非 JSON 响应。', {
                 code: 'INVALID_RESPONSE',
                 status: response.status,
                 cause,
@@ -180,9 +184,9 @@ async function fetchJson(fetchImpl, url, options, timeoutMs) {
             throw error;
         }
         if (error?.name === 'AbortError') {
-            throw new ServerPluginError('Server Plugin request timed out.', { code: 'TIMEOUT', cause: error });
+            throw new ServerPluginError('等待后端插件响应超时。', { code: 'TIMEOUT', cause: error });
         }
-        throw new ServerPluginError('Server Plugin is unavailable.', { code: 'UNAVAILABLE', cause: error });
+        throw new ServerPluginError('后端插件不可用。', { code: 'UNAVAILABLE', cause: error });
     } finally {
         clearTimeout(timeout);
     }
@@ -197,10 +201,11 @@ async function fetchText(fetchImpl, url, options, timeoutMs, {
 
     try {
         const response = await fetchImpl(url, { ...options, signal: controller.signal });
+        if (!response.ok) throw await readHttpError(response);
         const contentLength = Number(response.headers?.get?.('content-length'));
         if (Number.isFinite(contentLength) && contentLength > maxBytes) {
             controller.abort();
-            throw new ServerPluginError('Server Plugin log response is too large.', {
+            throw new ServerPluginError('后端日志响应超过大小上限。', {
                 code: 'LOG_TOO_LARGE',
                 status: response.status,
             });
@@ -219,7 +224,7 @@ async function fetchText(fetchImpl, url, options, timeoutMs, {
                     totalBytes += value.byteLength;
                     if (totalBytes > maxBytes) {
                         await reader.cancel();
-                        throw new ServerPluginError('Server Plugin log response is too large.', {
+                        throw new ServerPluginError('后端日志响应超过大小上限。', {
                             code: 'LOG_TOO_LARGE',
                             status: response.status,
                         });
@@ -233,7 +238,7 @@ async function fetchText(fetchImpl, url, options, timeoutMs, {
                     ? new TextEncoder().encode(data).byteLength
                     : data.length;
                 if (byteLength > maxBytes) {
-                    throw new ServerPluginError('Server Plugin log response is too large.', {
+                    throw new ServerPluginError('后端日志响应超过大小上限。', {
                         code: 'LOG_TOO_LARGE',
                         status: response.status,
                     });
@@ -242,25 +247,15 @@ async function fetchText(fetchImpl, url, options, timeoutMs, {
         } catch (cause) {
             if (cause?.name === 'AbortError') throw cause;
             if (cause instanceof ServerPluginError) throw cause;
-            throw new ServerPluginError('Server Plugin returned an invalid text response.', {
+            throw new ServerPluginError('后端插件返回了无效的文本响应。', {
                 code: 'INVALID_LOG_RESPONSE',
                 status: response.status,
                 cause,
             });
         }
-        if (!response.ok) {
-            let message = `Server Plugin request failed (${response.status}).`;
-            try {
-                const parsed = JSON.parse(data);
-                if (typeof parsed?.message === 'string') message = parsed.message;
-            } catch {
-
-            }
-            throw new ServerPluginError(message, { code: 'HTTP_ERROR', status: response.status });
-        }
         const contentType = response.headers?.get?.('content-type');
         if (contentType && !contentTypePattern.test(contentType)) {
-            throw new ServerPluginError('Server Plugin returned an invalid log content type.', {
+            throw new ServerPluginError('后端日志响应的内容类型无效。', {
                 code: 'INVALID_LOG_RESPONSE',
                 status: response.status,
             });
@@ -269,9 +264,9 @@ async function fetchText(fetchImpl, url, options, timeoutMs, {
     } catch (error) {
         if (error instanceof ServerPluginError) throw error;
         if (error?.name === 'AbortError') {
-            throw new ServerPluginError('Server Plugin request timed out.', { code: 'TIMEOUT', cause: error });
+            throw new ServerPluginError('等待后端插件响应超时。', { code: 'TIMEOUT', cause: error });
         }
-        throw new ServerPluginError('Server Plugin is unavailable.', { code: 'UNAVAILABLE', cause: error });
+        throw new ServerPluginError('后端插件不可用。', { code: 'UNAVAILABLE', cause: error });
     } finally {
         clearTimeout(timeout);
     }
@@ -283,22 +278,13 @@ async function sendWithoutBody(fetchImpl, url, options, timeoutMs) {
 
     try {
         const response = await fetchImpl(url, { ...options, signal: controller.signal });
-        if (!response.ok) {
-            let message = `Server Plugin request failed (${response.status}).`;
-            try {
-                const data = await response.json();
-                if (typeof data?.message === 'string') message = data.message;
-            } catch {
-                // The log transport deliberately ignores non-JSON error details.
-            }
-            throw new ServerPluginError(message, { code: 'HTTP_ERROR', status: response.status });
-        }
+        if (!response.ok) throw await readHttpError(response);
     } catch (error) {
         if (error instanceof ServerPluginError) throw error;
         if (error?.name === 'AbortError') {
-            throw new ServerPluginError('Server Plugin request timed out.', { code: 'TIMEOUT', cause: error });
+            throw new ServerPluginError('等待后端插件响应超时。', { code: 'TIMEOUT', cause: error });
         }
-        throw new ServerPluginError('Server Plugin is unavailable.', { code: 'UNAVAILABLE', cause: error });
+        throw new ServerPluginError('后端插件不可用。', { code: 'UNAVAILABLE', cause: error });
     } finally {
         clearTimeout(timeout);
     }
@@ -306,12 +292,12 @@ async function sendWithoutBody(fetchImpl, url, options, timeoutMs) {
 
 function validateHandshake(data) {
     if (data?.ok !== true || data?.pluginId !== EXTENSION_ID || data?.protocolVersion !== PROTOCOL_VERSION) {
-        throw new ServerPluginError(`Server Plugin protocol v${PROTOCOL_VERSION} is required.`, {
+        throw new ServerPluginError(`需要后端插件协议 v${PROTOCOL_VERSION}。`, {
             code: 'PROTOCOL_MISMATCH',
         });
     }
     if (data.transport !== REQUIRED_TRANSPORT) {
-        throw new ServerPluginError(`Server Plugin transport “${REQUIRED_TRANSPORT}” is required.`, {
+        throw new ServerPluginError(`需要后端传输方式“${REQUIRED_TRANSPORT}”。`, {
             code: 'TRANSPORT_MISMATCH',
         });
     }
@@ -325,7 +311,7 @@ async function fetchInspectorJson(fetchImpl, url, options, timeoutMs = 3000) {
         contentTypePattern: /^application\/json(?:\s*;|$)/iu,
     });
     try { return JSON.parse(text); }
-    catch { throw new ServerPluginError('The prompt snapshot response is invalid.', { code: 'INVALID_INSPECTOR_RESPONSE' }); }
+    catch { throw new ServerPluginError('提示词快照响应无效。', { code: 'INVALID_INSPECTOR_RESPONSE' }); }
 }
 const inspectorQuery = value => {
     const options = typeof value === 'string' ? { ticket: value } : value;
@@ -337,12 +323,12 @@ const inspectorQuery = value => {
     return params.size ? '?' + params.toString() : '';
 };
 
-export function createServerClient({ fetchImpl = globalThis.fetch, getRequestHeaders = () => ({}) } = {}) {
+export function createServerClient({ fetchImpl = globalThis.fetch, getRequestHeaders = () => ({}), localize = createLocalizer() } = {}) {
     if (typeof fetchImpl !== 'function') {
-        throw new TypeError('A fetch implementation is required.');
+        throw new TypeError('当前环境缺少 fetch 请求接口。');
     }
 
-    return {
+    const client = {
         async checkHealth() {
             const data = await fetchJson(fetchImpl, SERVER_ROUTES.HEALTH, {
                 method: 'GET',
@@ -364,12 +350,12 @@ export function createServerClient({ fetchImpl = globalThis.fetch, getRequestHea
             const proxyUrl = parseLoopbackProxyUrl(data.proxyUrl);
             const ticket = new URL(proxyUrl).pathname.split('/').at(-1);
             if (data.ticket !== ticket) {
-                throw new ServerPluginError('Server Plugin ticket does not match its proxy URL.', {
+                throw new ServerPluginError('后端凭证与代理地址不匹配。', {
                     code: 'INVALID_PROXY_TICKET',
                 });
             }
             if (typeof data.proxySecret !== 'string' || data.proxySecret.length < 16) {
-                throw new ServerPluginError('Server Plugin returned an invalid proxy secret.', {
+                throw new ServerPluginError('后端插件返回了无效的代理密钥。', {
                     code: 'INVALID_PROXY_SECRET',
                 });
             }
@@ -388,7 +374,7 @@ export function createServerClient({ fetchImpl = globalThis.fetch, getRequestHea
                 cache: 'no-store',
             }, UPDATE_CHECK_TIMEOUT_MS);
             if (data?.ok !== true || !['update-available', 'up-to-date', 'blocked'].includes(data.status) || !Array.isArray(data.components)) {
-                throw new ServerPluginError('Server Plugin returned an invalid update check.', { code: 'INVALID_UPDATE_RESPONSE' });
+                throw new ServerPluginError('后端插件返回的更新检查结果无效。', { code: 'INVALID_UPDATE_RESPONSE' });
             }
             return data;
         },
@@ -401,7 +387,7 @@ export function createServerClient({ fetchImpl = globalThis.fetch, getRequestHea
                 cache: 'no-store',
             }, UPDATE_START_TIMEOUT_MS);
             if (data?.ok !== true || data.started !== true) {
-                throw new ServerPluginError('Server Plugin did not start the update.', { code: 'INVALID_UPDATE_RESPONSE' });
+                throw new ServerPluginError('后端插件未能启动更新。', { code: 'INVALID_UPDATE_RESPONSE' });
             }
             return data;
         },
@@ -413,7 +399,7 @@ export function createServerClient({ fetchImpl = globalThis.fetch, getRequestHea
                 cache: 'no-store',
             }, UPDATE_STATUS_TIMEOUT_MS);
             if (data?.ok !== true || typeof data.running !== 'boolean') {
-                throw new ServerPluginError('Server Plugin returned an invalid update status.', { code: 'INVALID_UPDATE_RESPONSE' });
+                throw new ServerPluginError('后端插件返回的更新状态无效。', { code: 'INVALID_UPDATE_RESPONSE' });
             }
             return data;
         },
@@ -445,7 +431,7 @@ export function createServerClient({ fetchImpl = globalThis.fetch, getRequestHea
         async prepareNativeRequest(payload) {
             if (!payload || !NATIVE_SOURCES.has(payload.source) || typeof payload.model !== 'string'
                 || typeof payload.chatId !== 'string' || typeof payload.promptInspectorTicket !== 'string') {
-                throw new TypeError('A native request scope and prompt inspector ticket are required.');
+                throw new TypeError('原生请求需要有效的记录范围和提示词查看凭证。');
             }
             const body = { version: 1, source: payload.source, model: payload.model, chatId: payload.chatId,
                 promptInspectorTicket: payload.promptInspectorTicket };
@@ -457,7 +443,7 @@ export function createServerClient({ fetchImpl = globalThis.fetch, getRequestHea
             return validateNativePreparation(data, payload.source);
         },
         async cancelNativeRequest(ticket) {
-            if (typeof ticket !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/u.test(ticket)) throw new TypeError('A native relay ticket is required.');
+            if (typeof ticket !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/u.test(ticket)) throw new TypeError('缺少原生请求转发凭证。');
             return fetchJson(fetchImpl, '/api/plugins/vertex-paygo/native-prepare?ticket=' + encodeURIComponent(ticket), {
                 method: 'DELETE', headers: { ...getRequestHeaders(), Accept: 'application/json' }, cache: 'no-store',
             }, 2000);
@@ -480,10 +466,10 @@ export function createServerClient({ fetchImpl = globalThis.fetch, getRequestHea
         },
         async readUsage(chatId, { includeRequestPreviews = false, latest } = {}) {
             if (typeof chatId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(chatId)) {
-                throw new TypeError('A valid conversation usage ID is required.');
+                throw new TypeError('需要有效的对话用量 ID。');
             }
             if (latest !== undefined && (includeRequestPreviews !== true || !Number.isSafeInteger(latest) || latest < 1 || latest > 50)) {
-                throw new TypeError('A latest preview page requires an explicit bounded preview selection.');
+                throw new TypeError('读取最近请求预览时需要明确的数量限制。');
             }
             const previewSuffix = includeRequestPreviews === true ? `&includeRequestPreviews=1${latest === undefined ? '' : `&latest=${latest}`}` : '';
             const records = [];
@@ -498,7 +484,7 @@ export function createServerClient({ fetchImpl = globalThis.fetch, getRequestHea
                     cache: 'no-store',
                 }, LOG_TIMEOUT_MS);
                 if (data?.ok !== true || !Array.isArray(data.records)) {
-                    throw new ServerPluginError('Invalid usage ledger response.', { code: 'INVALID_USAGE_RESPONSE' });
+                    throw new ServerPluginError('用量记录响应无效。', { code: 'INVALID_USAGE_RESPONSE' });
                 }
                 records.push(...data.records);
                 cursor = data.nextCursor ?? undefined;
@@ -506,7 +492,7 @@ export function createServerClient({ fetchImpl = globalThis.fetch, getRequestHea
                 truncated ||= data.truncated === true && cursor === undefined;
                 if (cursor !== undefined) {
                     if (typeof cursor !== 'string' || cursor.length > 256 || !cursor || cursors.has(cursor)) {
-                        throw new ServerPluginError('Invalid usage ledger cursor.', { code: 'INVALID_USAGE_RESPONSE' });
+                        throw new ServerPluginError('用量记录的分页游标无效。', { code: 'INVALID_USAGE_RESPONSE' });
                     }
                     cursors.add(cursor);
                 }
@@ -527,4 +513,17 @@ export function createServerClient({ fetchImpl = globalThis.fetch, getRequestHea
             }, LOG_TIMEOUT_MS);
         },
     };
+    if (typeof localize === 'function') for (const [name, method] of Object.entries(client)) {
+        client[name] = async (...args) => {
+            try { return await method.apply(client, args); }
+            catch (error) {
+                if (error instanceof ServerPluginError) {
+                    error.message = localizeError(localize, error);
+                    error.localized = true;
+                }
+                throw error;
+            }
+        };
+    }
+    return client;
 }

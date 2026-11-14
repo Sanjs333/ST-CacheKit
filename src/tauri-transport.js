@@ -65,7 +65,7 @@ function signalAbort(signal) {
     if (typeof signal.throwIfAborted === 'function') {
         signal.throwIfAborted();
     } else if (signal.aborted) {
-        const error = new Error('The operation was aborted.');
+        const error = new Error('操作已取消。');
         error.name = 'AbortError';
         throw error;
     }
@@ -381,7 +381,7 @@ export function installTauriTransport({
     localize = message => message,
     origin = target.location?.origin,
 } = {}) {
-    if (typeof target.fetch !== 'function') throw new TypeError('fetch is required.');
+    if (typeof target.fetch !== 'function') throw new TypeError('当前环境缺少 fetch 请求接口。');
     const originalFetch = target.fetch;
     const wrappedServices = [];
     let destroyed = false;

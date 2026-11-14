@@ -69,7 +69,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
     getUsagePrice = () => null, messageCosts, worldInfoStability, promptInspector, ...hookOptions }) {
     const origin = hookOptions.origin ?? target.location?.origin;
     const originalFetch = target.fetch;
-    if (typeof originalFetch !== 'function') throw new TypeError('fetch is required.');
+    if (typeof originalFetch !== 'function') throw new TypeError('当前环境缺少 fetch 请求接口。');
     const requestStates = new WeakMap();
     const requestUsage = new WeakMap();
     const restorers = [];
@@ -84,7 +84,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
             else delete owner[key];
         });
         owner[key] = wrapper;
-        if (owner[key] !== wrapper) throw new TypeError(`Cannot install request wrapper: ${key}`);
+        if (owner[key] !== wrapper) throw new TypeError(`无法安装请求包装接口：${key}`);
     };
     const destroy = () => {
         if (destroyed) return;
@@ -237,7 +237,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
             if (isNativeGemini4Request(data)) {
                 if (!serverSupportsNativeGemini4(prepared, data.model)) {
                     const message = hookOptions.localize?.('vertex_paygo.gemini4.server_upgrade')
-                        ?? 'Gemini 4 compatibility requires the updated server plugin. Update the server plugin and restart SillyTavern.';
+                        ?? 'Gemini 4 兼容功能需要新版服务端插件，请更新服务端并重启 SillyTavern。';
                     throw Object.assign(new Error(message), { code: 'GEMINI4_SERVER_UPGRADE_REQUIRED' });
                 }
                 data.native_gemini_api_version = prepared.nativeGeminiApiVersion;

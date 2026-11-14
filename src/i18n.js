@@ -333,6 +333,135 @@ export const MESSAGES = Object.freeze({
     "vertex_paygo.server_error.transport": "Server transport “{transport}” required.",
     "vertex_paygo.server_error.ticket": "Server ticket does not match its proxy URL.",
     "vertex_paygo.server_error.secret": "Server plugin returned an invalid proxy secret.",
+
+    "vertex_paygo.error_code.authenticated_user_required": "An authenticated SillyTavern user is required.",
+    "vertex_paygo.error_code.gemini4_upstream_http_error": "Google rejected the Gemini 4 request.",
+    "vertex_paygo.error_code.client_disconnected": "The client disconnected.",
+    "vertex_paygo.error_code.request_body_too_large": "The proxied Google request body is too large.",
+    "vertex_paygo.error_code.invalid_google_body": "The Google request must be a JSON object.",
+    "vertex_paygo.error_code.vertex_upstream_timeout": "The Google upstream request timed out.",
+    "vertex_paygo.error_code.gemini4_compressed_response": "The Google upstream returned unsupported compressed data.",
+    "vertex_paygo.error_code.gemini4_upstream_error": "The Google upstream returned an error.",
+    "vertex_paygo.error_code.gemini4_response_too_large": "The Google response exceeded the transport limit.",
+    "vertex_paygo.error_code.gemini4_incomplete_response": "The Google stream ended without a terminal finish reason.",
+    "vertex_paygo.error_code.gemini4_continuation_token_missing": "The Google continuation response did not include a token.",
+    "vertex_paygo.error_code.gemini4_continuation_budget_unknown": "The Google continuation cannot proceed without an explicit output budget and output usage.",
+    "vertex_paygo.error_code.gemini4_continuation_limit": "The Google continuation limit was reached.",
+    "vertex_paygo.error_code.paygo_only_removed": "Force PayGo-only has been removed; refresh the frontend or remove the legacy option.",
+    "vertex_paygo.error_code.priority_removed": "Priority has been removed; use Standard or Flex.",
+    "vertex_paygo.error_code.invalid_header_policy": "The PayGo header policy received invalid state.",
+    "vertex_paygo.error_code.incompatible_sillytavern": "The host secret reader is unavailable.",
+    "vertex_paygo.error_code.incompatible_host_secret_manager": "This legacy host lacks the required by-ID SecretManager interface.",
+    "vertex_paygo.error_code.explicit_secret_unsupported": "The selected credential ID is invalid.",
+    "vertex_paygo.error_code.explicit_secret_unavailable": "The host credential could not be read.",
+    "vertex_paygo.error_code.log_access_forbidden": "Administrator access is required to read the shared server log.",
+    "vertex_paygo.error_code.client_log_access_forbidden": "Administrator access is required to write the shared server log.",
+    "vertex_paygo.error_code.client_log_media_type_required": "The client log content type is invalid.",
+    "vertex_paygo.error_code.invalid_client_log_event": "The client log content length is invalid.",
+    "vertex_paygo.error_code.client_log_event_too_large": "The client log event is too large.",
+    "vertex_paygo.error_code.log_read_failed": "The 提示词缓存优化 log could not be read.",
+    "vertex_paygo.error_code.loopback_bind_failed": "The private loopback proxy could not be started.",
+    "vertex_paygo.error_code.loopback_not_ready": "The private loopback proxy is not ready.",
+    "vertex_paygo.error_code.gemini4_output_budget_exhausted": "Gemini 4 used the whole output budget before writing reply text. Thinking tokens count toward the maximum response length; raise it or lower the reasoning effort.",
+    "vertex_paygo.error_code.native_gemini_empty_response": "Native Gemini returned no reply text.",
+    "vertex_paygo.error_code.native_gemini_upstream_failed": "Native Gemini generation failed.",
+    "vertex_paygo.error_code.native_gemini_model_unsupported": "Native Gemini generation requires a supported Gemini 4 model.",
+    "vertex_paygo.error_code.native_gemini_source_unsupported": "Native Gemini generation requires a Google source.",
+    "vertex_paygo.error_code.invalid_request": "The generation request parameters are invalid.",
+    "vertex_paygo.error_code.invalid_proxy_target": "The prepared local proxy target is invalid.",
+    "vertex_paygo.error_code.native_gemini_invalid_response": "Native Gemini returned a stream event that is too large.",
+    "vertex_paygo.error_code.native_gemini_failed": "Native Gemini generation could not be completed.",
+    "vertex_paygo.error_code.native_relay_unsupported": "Final native request capture is unavailable for this configuration.",
+    "vertex_paygo.error_code.invalid_native_prepare": "Invalid native request preparation metadata.",
+    "vertex_paygo.error_code.invalid_native_proxy_path": "The native proxy path is invalid.",
+    "vertex_paygo.error_code.native_relay_request_failed": "The native request stream failed.",
+    "vertex_paygo.error_code.method_not_allowed": "Only POST is accepted by the native relay.",
+    "vertex_paygo.error_code.native_proxy_mismatch": "The native proxy request does not match its ticket.",
+    "vertex_paygo.error_code.native_relay_redirect_rejected": "The native relay does not follow upstream redirects.",
+    "vertex_paygo.error_code.native_relay_response_failed": "The native upstream response headers are invalid.",
+    "vertex_paygo.error_code.native_relay_upstream_failed": "The native upstream connection failed.",
+    "vertex_paygo.error_code.native_relay_upstream_timeout": "The native upstream request timed out.",
+    "vertex_paygo.error_code.invalid_native_ticket": "Invalid native relay ticket.",
+    "vertex_paygo.error_code.invalid_prompt_inspector_scope": "Invalid prompt inspector model.",
+    "vertex_paygo.error_code.prompt_inspector_unavailable": "Prompt inspector is unavailable.",
+    "vertex_paygo.error_code.native_prompt_capture_unavailable": "Final outbound capture is unavailable for this provider. Frontend request messages can be inspected without host changes.",
+    "vertex_paygo.error_code.prompt_inspector_capacity": "Temporary prompt inspector capacity is exhausted.",
+    "vertex_paygo.error_code.invalid_prompt_inspector_query": "Invalid prompt inspector ticket.",
+    "vertex_paygo.error_code.invalid_prepare_request": "The request preparation parameters are invalid.",
+    "vertex_paygo.error_code.invalid_worldinfo_order_plan": "Invalid bounded world-info order plan.",
+    "vertex_paygo.error_code.protocol_mismatch": "The frontend and server protocol versions are incompatible.",
+    "vertex_paygo.error_code.google_only": "Only the Vertex AI and Google AI Studio sources are supported.",
+    "vertex_paygo.error_code.upstream_proxy_unsupported": "Existing reverse-proxy settings are not accepted by this transport.",
+    "vertex_paygo.error_code.invalid_reverse_proxy": "The AI Studio reverse proxy must be an HTTP(S) base URL without credentials, query or fragment.",
+    "vertex_paygo.error_code.invalid_proxy_password": "The AI Studio proxy password is invalid.",
+    "vertex_paygo.error_code.model_unsupported": "Vertex AI Flex does not support Gemini 4 models. Use Standard.",
+    "vertex_paygo.error_code.global_region_required": "Flex requires the global Vertex AI region.",
+    "vertex_paygo.error_code.invalid_proxy_secret": "The proxy credential is invalid.",
+    "vertex_paygo.error_code.invalid_proxy_path": "The proxy path is invalid.",
+    "vertex_paygo.error_code.proxy_request_mismatch": "The proxy request does not match its ticket.",
+    "vertex_paygo.error_code.json_required": "The loopback proxy accepts JSON request bodies only.",
+    "vertex_paygo.error_code.vertex_redirect_rejected": "The Vertex AI upstream returned a redirect, which was not followed.",
+    "vertex_paygo.error_code.vertex_upstream_failed": "The Vertex AI upstream connection failed.",
+    "vertex_paygo.error_code.proxy_request_stream_failed": "The loopback request stream failed.",
+    "vertex_paygo.error_code.native_order_unavailable": "Native world-info ordering is unavailable.",
+    "vertex_paygo.error_code.paygo_request_blocked": "The 提示词缓存优化 request was blocked before proxy preparation completed.",
+    "vertex_paygo.error_code.unsafe_google_target": "SillyTavern returned an invalid Google endpoint.",
+    "vertex_paygo.error_code.unsafe_google_headers": "SillyTavern returned invalid Vertex AI headers.",
+    "vertex_paygo.error_code.ticket_capacity_exceeded": "The proxy ticket capacity is temporarily exhausted.",
+    "vertex_paygo.error_code.user_ticket_capacity_exceeded": "This user has too many pending proxy tickets.",
+    "vertex_paygo.error_code.ticket_issue_rate_exceeded": "Proxy ticket issuance is temporarily rate limited.",
+    "vertex_paygo.error_code.ticket_reservation_invalid": "The proxy ticket reservation is invalid or has expired.",
+    "vertex_paygo.error_code.ticket_reservation_expired": "The proxy ticket reservation has expired.",
+    "vertex_paygo.error_code.ticket_generation_failed": "Could not allocate a proxy ticket.",
+    "vertex_paygo.error_code.invalid_proxy_ticket": "The proxy ticket is invalid or has already been used.",
+    "vertex_paygo.error_code.expired_proxy_ticket": "The proxy ticket has expired.",
+    "vertex_paygo.error_code.updater_vendor_unavailable": "The bundled Git implementation is missing or incomplete.",
+    "vertex_paygo.error_code.updater_git_failed": "The Git update operation failed. Check the network and repository status.",
+    "vertex_paygo.error_code.updater_invalid_metadata": "The PayGo updater metadata could not be read as a JSON object.",
+    "vertex_paygo.error_code.updater_payload_mismatch": "The prepared frontend copy is not the 提示词缓存优化 extension.",
+    "vertex_paygo.error_code.updater_payload_incomplete": "The prepared server copy is missing its main entry point.",
+    "vertex_paygo.error_code.updater_payload_symlink": "The prepared update contains a symbolic link.",
+    "vertex_paygo.error_code.updater_component_missing": "The component was not found in the host installation.",
+    "vertex_paygo.error_code.updater_component_ambiguous": "Several copies of this component were found. Remove the extra copies before updating.",
+    "vertex_paygo.error_code.updater_protocol_mismatch": "The component updates would use incompatible protocol versions. Update both components together.",
+    "vertex_paygo.error_code.updater_in_progress": "An update is already running.",
+    "vertex_paygo.error_code.updater_component_blocked": "This component cannot be updated.",
+    "vertex_paygo.error_code.updater_installation_changed": "The installation changed while preparing the update. Check for updates again.",
+    "vertex_paygo.error_code.updater_unsafe_path": "External plugin directories must share the configured data root and contain the running server plugin.",
+    "vertex_paygo.error_code.updater_host_paths_unavailable": "The host has not published its resolved data and configuration paths.",
+    "vertex_paygo.error_code.updater_access_forbidden": "Administrator access is required to update the 提示词缓存优化 components.",
+    "vertex_paygo.error_code.local_preview_updates_disabled": "This local preview must be updated from its explicit local build, not the upstream updater.",
+    "vertex_paygo.error_code.updater_busy": "Another installation or update is already running, or its lock directory remains.",
+    "vertex_paygo.error_code.updater_lock_failed": "The update lock could not be created.",
+    "vertex_paygo.error_code.updater_activation_failed": "The prepared update could not be activated. Check the runtime log for recovery details.",
+    "vertex_paygo.error_code.updater_invalid_ref": "The selected Git branch or tag name is invalid.",
+    "vertex_paygo.error_code.updater_unknown_tag_shape": "The selected commit has a tag outside the supported vMAJOR.MINOR.PATCH format.",
+    "vertex_paygo.error_code.updater_no_history": "The selected branch history is required to resolve the newest release tag.",
+    "vertex_paygo.error_code.updater_no_tag": "No release tag is available for the selected branch.",
+    "vertex_paygo.error_code.updater_no_reachable_tag": "No release tag is reachable from the selected branch.",
+    "vertex_paygo.error_code.updater_channel_unknown": "This installation does not record which release channel it follows. Run the installer once to record it, then retry.",
+    "vertex_paygo.error_code.updater_not_installed": "No installed Git revision was found for this component.",
+    "vertex_paygo.error_code.updater_no_branch_head": "The selected branch has no head revision.",
+    "vertex_paygo.error_code.updater_no_target": "The updater did not resolve a target release.",
+    "vertex_paygo.error_code.updater_local_changes": "Local changes prevent this update. Back up the files and use the installer to replace them.",
+    "vertex_paygo.error_code.updater_local_commits": "The installed copy contains commits that are not on the selected branch. Use the installer with --replace-modified to back them up and replace them.",
+    "vertex_paygo.error_code.updater_older_or_divergent": "The selected revision is older than or divergent from the installed revision.",
+    "vertex_paygo.error_code.invalid_usage_page": "Invalid preview selection.",
+    "vertex_paygo.error_code.request_preview_feature_unavailable": "The backend cannot read a bounded preview page.",
+    "vertex_paygo.error_code.internal_error": "The Prompt Cache Optimization server plugin could not complete the request. See the runtime log for details.",
+    "vertex_paygo.error_code.invalid_update_response": "The server returned an invalid update response.",
+    "vertex_paygo.error_code.invalid_usage_response": "The server returned invalid usage records.",
+    "vertex_paygo.error_code.invalid_inspector_response": "The prompt snapshot response is invalid.",
+    "vertex_paygo.network_error.etimedout": "The forwarded request timed out ({code}). Retry later or check your network and proxy connection.",
+    "vertex_paygo.network_error.esockettimedout": "The forwarded request timed out ({code}). Retry later or check your network and proxy connection.",
+    "vertex_paygo.network_error.und_err_connect_timeout": "Connecting to the server timed out ({code}). Retry later or check your network and proxy connection.",
+    "vertex_paygo.network_error.und_err_headers_timeout": "Waiting for the server response timed out ({code}). Retry later or check your network and proxy connection.",
+    "vertex_paygo.network_error.und_err_body_timeout": "Reading the server response timed out ({code}). Retry later or check your network and proxy connection.",
+    "vertex_paygo.network_error.econnreset": "The request connection was interrupted ({code}). Retry later or check your network and proxy connection.",
+    "vertex_paygo.network_error.econnrefused": "The request connection was refused ({code}). Retry later or check your network and proxy connection.",
+    "vertex_paygo.network_error.enotfound": "The request hostname could not be resolved ({code}). Retry later or check your network and proxy connection.",
+    "vertex_paygo.network_error.eai_again": "The request hostname could not be resolved temporarily ({code}). Retry later or check your network and proxy connection.",
+    "vertex_paygo.error_code.explicit_secret_not_found": "The selected credential was not found. Check the credential selection.",
 });
 
 export function formatMessage(message, parameters = {}) {
@@ -399,38 +528,70 @@ export function localizeValidation(localize, validation, state = undefined) {
     }
 }
 
+const KEY_BY_ERROR_CODE = Object.freeze({
+    PAYGO_ONLY_REMOVED: 'vertex_paygo.server_error.paygo_only_removed',
+    PRIORITY_REMOVED: 'vertex_paygo.server_error.priority_removed',
+    CSRF_REJECTED: 'vertex_paygo.server_error.csrf',
+    INVALID_PROXY_URL: 'vertex_paygo.server_error.invalid_proxy_url',
+    UNSAFE_PROXY_URL: 'vertex_paygo.server_error.unsafe_proxy_url',
+    INVALID_RESPONSE: 'vertex_paygo.server_error.invalid_response',
+    INVALID_LOG_RESPONSE: 'vertex_paygo.server_error.invalid_log_response',
+    LOG_TOO_LARGE: 'vertex_paygo.server_error.log_too_large',
+    TIMEOUT: 'vertex_paygo.server_error.timeout',
+    UNAVAILABLE: 'vertex_paygo.server_error.unavailable',
+    PROTOCOL_MISMATCH: 'vertex_paygo.server_error.protocol',
+    TRANSPORT_MISMATCH: 'vertex_paygo.server_error.transport',
+    INVALID_PROXY_TICKET: 'vertex_paygo.server_error.ticket',
+    INVALID_PROXY_SECRET: 'vertex_paygo.server_error.secret',
+});
+
+export function localizePluginErrorMessage(localize, error,
+    { protocolVersion = PROTOCOL_VERSION, transport = REQUIRED_TRANSPORT } = {}) {
+    if (typeof localize !== 'function' || typeof error?.code !== 'string') return null;
+    const details = error.details && typeof error.details === 'object' ? error.details : {};
+    const rawNetworkKey = 'vertex_paygo.network_error.' + error.code.toLowerCase();
+    if (Object.hasOwn(MESSAGES, rawNetworkKey)) return localize(rawNetworkKey, { code: error.code });
+    const key = KEY_BY_ERROR_CODE[error.code] ?? 'vertex_paygo.error_code.' + error.code.toLowerCase();
+    if (!Object.hasOwn(MESSAGES, key)) return null;
+    if (typeof details.networkCode === 'string') {
+        const networkKey = 'vertex_paygo.network_error.' + details.networkCode.toLowerCase();
+        if (Object.hasOwn(MESSAGES, networkKey)) return localize(networkKey, { code: details.networkCode });
+    }
+    if (error.code === 'GEMINI4_UPSTREAM_HTTP_ERROR' && Number.isInteger(details.upstreamStatus)
+        && (details.upstreamMessage || details.googleStatus)) {
+        return localize('vertex_paygo.gemini4.upstream_error', {
+            status: details.upstreamStatus, message: details.upstreamMessage || details.googleStatus,
+        });
+    }
+    if (error.code === 'NATIVE_GEMINI_EMPTY_RESPONSE') {
+        return localize('vertex_paygo.gemini4.no_output', { reason: details.reason ?? 'UNKNOWN' });
+    }
+    const translated = localize(key, { version: protocolVersion, transport, size: '5 MiB' });
+    // Preserve current servers' specific Chinese diagnoses, including fields and paths.
+    if (error.code !== 'INTERNAL_ERROR' && typeof error.message === 'string'
+        && /\p{Script=Han}/u.test(translated) && /\p{Script=Han}/u.test(error.message)
+        && !/^\s*(?:The|This|Server Plugin|Native Gemini|An|A)\b/u.test(error.message)) return error.message;
+    return translated;
+}
+
 export function localizeError(
     localize,
     error,
     { protocolVersion = PROTOCOL_VERSION, transport = REQUIRED_TRANSPORT } = {},
 ) {
-    const keyByCode = {
-        PAYGO_ONLY_REMOVED: 'vertex_paygo.server_error.paygo_only_removed',
-        CSRF_REJECTED: 'vertex_paygo.server_error.csrf',
-        INVALID_PROXY_URL: 'vertex_paygo.server_error.invalid_proxy_url',
-        UNSAFE_PROXY_URL: 'vertex_paygo.server_error.unsafe_proxy_url',
-        INVALID_RESPONSE: 'vertex_paygo.server_error.invalid_response',
-        INVALID_LOG_RESPONSE: 'vertex_paygo.server_error.invalid_log_response',
-        LOG_TOO_LARGE: 'vertex_paygo.server_error.log_too_large',
-        TIMEOUT: 'vertex_paygo.server_error.timeout',
-        UNAVAILABLE: 'vertex_paygo.server_error.unavailable',
-        PROTOCOL_MISMATCH: 'vertex_paygo.server_error.protocol',
-        TRANSPORT_MISMATCH: 'vertex_paygo.server_error.transport',
-        INVALID_PROXY_TICKET: 'vertex_paygo.server_error.ticket',
-        INVALID_PROXY_SECRET: 'vertex_paygo.server_error.secret',
-    };
-
+    if (error?.localized && typeof error.message === 'string') return error.message;
     if (error?.code === 'HTTP_ERROR') {
         if (error.responseFormat === 'non-json') return localize('vertex_paygo.server_error.http_non_json', { status: error.status });
         const details = [error.status ? `HTTP ${error.status}` : '', error.serverCode].filter(Boolean).join(' / ');
+        const message = localizePluginErrorMessage(localize, {
+            code: error.serverCode, message: error.message, details: error.details,
+        }, { protocolVersion, transport }) ?? (typeof error.message === 'string' ? error.message : String(error));
         return localize('vertex_paygo.server_error.http', {
-            message: `${error instanceof Error ? error.message : String(error)}${details ? ` (${details})` : ''}`,
+            message: `${message}${details ? ` (${details})` : ''}`,
         });
     }
 
-    const key = keyByCode[error?.code];
-    if (key) {
-        return localize(key, { version: protocolVersion, transport, size: '5 MiB' });
-    }
-    return error instanceof Error ? error.message : String(error);
+    const message = localizePluginErrorMessage(localize, error, { protocolVersion, transport });
+    if (message) return message;
+    return typeof error?.message === 'string' ? error.message : String(error);
 }

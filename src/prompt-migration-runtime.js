@@ -202,21 +202,21 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
             else delete object[key];
         });
         object[key] = wrapper;
-        if (object[key] !== wrapper) throw new TypeError('Cannot observe public prompt method');
+        if (object[key] !== wrapper) throw new TypeError('无法观察公开的提示词接口');
     }
     function coreSnapshot(chat) {
-        if (!Array.isArray(chat) || chat.length > MAX_MESSAGES) throw new TypeError('Unknown chat source');
+        if (!Array.isArray(chat) || chat.length > MAX_MESSAGES) throw new TypeError('无法识别对话来源');
         const field = (object, key) => {
             const descriptor = object && Object.getOwnPropertyDescriptor(object, key);
-            if (!descriptor) { if (object && key in object) throw new TypeError('Inherited chat source'); return undefined; }
-            if (!('value' in descriptor)) throw new TypeError('Unknown chat accessor');
+            if (!descriptor) { if (object && key in object) throw new TypeError('对话来源使用了继承属性'); return undefined; }
+            if (!('value' in descriptor)) throw new TypeError('无法识别对话读取接口');
             return descriptor.value;
         };
         const clones = new WeakMap();
         let objects = 0;
         const copy = (value, depth = 0) => {
             if (!value || typeof value !== 'object') {
-                if (typeof value === 'function' || typeof value === 'symbol') throw new TypeError('Unknown chat value');
+                if (typeof value === 'function' || typeof value === 'symbol') throw new TypeError('无法识别对话内容');
                 return value;
             }
             if (depth > 32 || ++objects > MAX_MESSAGES * 32) throw new RangeError('Source limit');
@@ -225,18 +225,18 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
             clones.set(value, result);
             for (const [key, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(value))) {
                 if (!descriptor.enumerable) continue;
-                if (!('value' in descriptor)) throw new TypeError('Unknown chat accessor');
+                if (!('value' in descriptor)) throw new TypeError('无法识别对话读取接口');
                 Object.defineProperty(result, key, { value: copy(descriptor.value, depth + 1), enumerable: true, configurable: true, writable: true });
             }
             return result;
         };
         const ignored = [], messages = chat.map(message => {
-            if (!message || typeof message !== 'object') throw new TypeError('Unknown chat source');
+            if (!message || typeof message !== 'object') throw new TypeError('无法识别对话来源');
             const result = {};
             for (const key of ['mes', 'name', 'is_user', 'is_system', 'role', 'tool_calls', 'tool_call_id', 'force_avatar']) result[key] = copy(field(message, key));
             const extra = field(message, 'extra');
             if (extra != null) {
-                if (typeof extra !== 'object') throw new TypeError('Unknown chat source');
+                if (typeof extra !== 'object') throw new TypeError('无法识别对话来源');
                 result.extra = {};
                 for (const key of ['type', 'media', 'media_display', 'media_index', 'tool_invocations', 'api', 'model', 'reasoning_signature', 'reasoning',
                     'native', 'tool_reasoning_content', 'provider_replay']) {
@@ -248,7 +248,7 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
         });
         if (bytes(messages.map(message => message?.mes)) > MAX_TEXT_BYTES) throw new RangeError('Source limit');
         messages.forEach((message, index) => {
-            if (!message || typeof message.mes !== 'string') throw new TypeError('Unknown chat source');
+            if (!message || typeof message.mes !== 'string') throw new TypeError('无法识别对话来源');
             if (ignored[index]) { message.extra ??= {}; message.extra[Symbol.for('ignore')] = true; }
         });
         return { messages, ignored };
@@ -258,7 +258,7 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
         try {
             const seed = coreSnapshot(token.coreChat), history = openAi.setOpenAIMessages(seed.messages);
             if (!Array.isArray(history) || !Array.from(history).every(message => message && (message.content == null || typeof message.content === 'string')
-                && ['system', 'user', 'assistant'].includes(message.role))) throw new TypeError('Unknown formatted chat');
+                && ['system', 'user', 'assistant'].includes(message.role))) throw new TypeError('无法识别格式化后的对话');
             token.coreSeed = seed; token.historySeed = history;
         } catch { token.coreSeed = null; token.historySeed = null; }
     }
@@ -277,43 +277,43 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
     }
     function extensionSnapshot() {
         const prompts = getContext()?.extensionPrompts;
-        if (!prompts || typeof prompts !== 'object') throw new TypeError('Unknown extension sources');
+        if (!prompts || typeof prompts !== 'object') throw new TypeError('无法识别扩展提示词来源');
         const records = [], references = [];
         for (const [id, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(prompts)).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) {
             if (!descriptor.enumerable) continue;
-            if (!('value' in descriptor)) throw new TypeError('Unknown extension accessor');
+            if (!('value' in descriptor)) throw new TypeError('无法识别扩展提示词读取接口');
             const entry = descriptor.value;
-            if (!entry || typeof entry !== 'object') throw new TypeError('Unknown extension source');
+            if (!entry || typeof entry !== 'object') throw new TypeError('无法识别扩展提示词来源');
             const fields = Object.getOwnPropertyDescriptors(entry);
-            if (['value', 'position', 'depth', 'role', 'filter'].some(key => fields[key] && !('value' in fields[key]))) throw new TypeError('Unknown extension accessor');
-            if (['value', 'position', 'depth', 'role', 'filter'].some(key => !fields[key] && key in entry)) throw new TypeError('Unknown inherited extension source');
-            if (!fields.position || !fields.value) throw new TypeError('Incomplete extension source');
+            if (['value', 'position', 'depth', 'role', 'filter'].some(key => fields[key] && !('value' in fields[key]))) throw new TypeError('无法识别扩展提示词读取接口');
+            if (['value', 'position', 'depth', 'role', 'filter'].some(key => !fields[key] && key in entry)) throw new TypeError('无法识别继承的扩展提示词来源');
+            if (!fields.position || !fields.value) throw new TypeError('扩展提示词来源不完整');
             const position = fields.position?.value, value = fields.value?.value;
-            if (typeof position !== 'number') throw new TypeError('Unknown extension position');
+            if (typeof position !== 'number') throw new TypeError('无法识别扩展提示词位置');
             if (position !== 1 || !value) continue;
-            if (typeof value !== 'string' || fields.filter?.value != null && typeof fields.filter.value === 'function') throw new TypeError('Unobserved extension filter');
+            if (typeof value !== 'string' || fields.filter?.value != null && typeof fields.filter.value === 'function') throw new TypeError('未记录扩展提示词筛选过程');
             const depth = fields.depth?.value, role = fields.role?.value;
-            if (depth === undefined || role === undefined) throw new TypeError('Wildcard injection is unbounded');
-            if (typeof depth !== 'number' || typeof role !== 'number') throw new TypeError('Unknown extension placement');
+            if (depth === undefined || role === undefined) throw new TypeError('通配符注入范围未明确');
+            if (typeof depth !== 'number' || typeof role !== 'number') throw new TypeError('无法识别扩展提示词的插入位置');
             records.push({ id, text: value, depth, role }); references.push(entry);
         }
         if (records.length > MAX_MESSAGES || bytes(records) > MAX_WI_BYTES) throw new RangeError('Source limit');
         return { records, references };
     }
     function collectionSnapshot(collection, token) {
-        if (!Array.isArray(collection?.collection) || collection.collection.length > MAX_MESSAGES) throw new TypeError('Unknown prompt collection');
+        if (!Array.isArray(collection?.collection) || collection.collection.length > MAX_MESSAGES) throw new TypeError('无法识别提示词集合');
         const records = collection.collection.map(prompt => {
             const source = promptSources.get(prompt);
             const fields = Object.getOwnPropertyDescriptors(prompt);
             const values = {};
             for (const key of ['identifier', 'content', 'role', 'position', 'extension', 'injection_position', 'injection_depth', 'injection_order']) {
                 const descriptor = fields[key];
-                if (descriptor && !('value' in descriptor)) throw new TypeError('Unknown prompt accessor');
+                if (descriptor && !('value' in descriptor)) throw new TypeError('无法识别提示词读取接口');
                 const value = descriptor?.value;
-                if (value != null && !['string', 'boolean', 'number'].includes(typeof value)) throw new TypeError('Unknown prompt placement');
+                if (value != null && !['string', 'boolean', 'number'].includes(typeof value)) throw new TypeError('无法识别提示词插入位置');
                 values[key] = value;
             }
-            if (!source || source.token !== token || source.text !== values.content || source.role !== values.role) throw new TypeError('Unobserved prompt source');
+            if (!source || source.token !== token || source.text !== values.content || source.role !== values.role) throw new TypeError('未记录提示词来源');
             return { identifier: values.identifier, text: values.content, role: values.role,
                 position: values.position, extension: values.extension === true,
                 injection_position: values.injection_position, injection_depth: values.injection_depth,
@@ -323,13 +323,13 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
     }
     function sameReferences(left, right) { return left.length === right.length && left.every((item, index) => item === right[index]); }
     function prepareDepthGraph(token) {
-        if (!supportsDepthAggregation || !token.coreSeed || !token.historySeed || !token.promptCollection || token.collectionConflict) throw new TypeError('Missing native source graph');
+        if (!supportsDepthAggregation || !token.coreSeed || !token.historySeed || !token.promptCollection || token.collectionConflict) throw new TypeError('缺少原生提示词来源关系');
         const maximum = script.getExtensionPromptMaxDepth();
-        if (!Number.isSafeInteger(maximum) || maximum < 0 || maximum > 10000) throw new TypeError('Unknown injection depth contract');
+        if (!Number.isSafeInteger(maximum) || maximum < 0 || maximum > 10000) throw new TypeError('无法确认提示词注入深度规则');
         const collection = collectionSnapshot(token.promptCollection, token), extensions = extensionSnapshot();
         if (!token.extensionSeed || !same(extensions.records, token.extensionSeed.records)
             || !sameReferences(extensions.references, token.extensionSeed.references)
-            || !same(coreSnapshot(token.coreChat), token.coreSeed)) throw new TypeError('Source graph changed');
+            || !same(coreSnapshot(token.coreChat), token.coreSeed)) throw new TypeError('提示词来源关系已变化');
         const knownExtensions = new Map([['1_memory', 'summary'], ['2_floating_prompt', 'authorsNote'],
             ['3_vectors', 'vectorsMemory'], ['4_vectors_data_bank', 'vectorsDataBank'], ['chromadb', 'smartContext']]);
         const extensionValues = extensions.records.map(entry => {
@@ -361,7 +361,7 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
             const bucket = new Map([['100', []]]);
             for (const prompt of absolute.filter(prompt => prompt.injection_depth === depth && prompt.text)) {
                 const priority = prompt.injection_order ?? 100;
-                if (!Number.isFinite(priority)) throw new TypeError('Unknown injection priority');
+                if (!Number.isFinite(priority)) throw new TypeError('无法识别提示词注入优先级');
                 const order = String(priority), values = bucket.get(order) ?? [];
                 values.push(prompt); bucket.set(order, values);
             }
@@ -389,7 +389,7 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
         }
         if (token.type === 'continue' && manager.serviceSettings.continue_prefill !== true && token.continuationReserved) {
             const index = graph.findIndex(entry => !entry.group);
-            if (index < 0) throw new TypeError('Missing displaced continuation');
+            if (index < 0) throw new TypeError('缺少移位的续写内容');
             graph.splice(index, 1);
         }
         if (graph.length > MAX_MESSAGES) throw new RangeError('Source limit');
@@ -399,7 +399,7 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
         const fields = Object.getOwnPropertyDescriptors(input ?? {}), identifier = fields.identifier?.value;
         if (typeof identifier !== 'string' || !/^chatHistory-\d+$/u.test(identifier)) return null;
         try {
-            if (['role', 'name', 'content'].some(key => fields[key] && !('value' in fields[key]))) throw new TypeError('Unknown history accessor');
+            if (['role', 'name', 'content'].some(key => fields[key] && !('value' in fields[key]))) throw new TypeError('无法识别历史消息读取接口');
             token.depthGraph ??= prepareDepthGraph(token);
             const proof = token.depthGraph, number = Number(identifier.slice('chatHistory-'.length));
             const entry = proof.graph[proof.graph.length - number];
@@ -561,20 +561,20 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
     }
     function structuredProjection(frame, plan, moves, protectedPayloads) {
         const anchor = plan.anchors.green?.slot;
-        if (!anchor || !frame.wireIndices?.has(anchor.message) || !findParent(frame.root, anchor.message)) throw new TypeError('Unknown example anchor');
+        if (!anchor || !frame.wireIndices?.has(anchor.message) || !findParent(frame.root, anchor.message)) throw new TypeError('无法识别示例对话定位标记');
         const value = plan.output.get(anchor), pieces = typeof value === 'string' ? value.split(MACROS.green) : [];
-        if (pieces.length !== 2) throw new TypeError('Unknown example anchor range');
+        if (pieces.length !== 2) throw new TypeError('无法识别示例对话的定位范围');
         const head = pieces[0] + plan.collections.green.body, tail = pieces[1], anchorIndex = frame.wireIndices.get(anchor.message);
         const moving = new Set(), moved = [];
         for (const move of moves) for (const node of move.nodes) {
             const index = frame.wireIndices.get(node);
-            if (!Number.isSafeInteger(index) || moving.has(index) || index === anchorIndex || !findParent(frame.root, node)) throw new TypeError('Unknown example source');
+            if (!Number.isSafeInteger(index) || moving.has(index) || index === anchorIndex || !findParent(frame.root, node)) throw new TypeError('无法识别示例对话来源');
             moving.add(index); moved.push(structuredClone(frame.originalChat[index]));
         }
         const outputs = new Map();
         for (const [slot, output] of plan.output) {
             const index = frame.wireIndices.get(slot.message);
-            if (!Number.isSafeInteger(index)) throw new TypeError('Unknown source position');
+            if (!Number.isSafeInteger(index)) throw new TypeError('无法识别来源位置');
             outputs.set(index, output);
         }
         // Project independently from captured wire payloads and planned ranges;
@@ -601,7 +601,7 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
             ? await Message.createAsync(message.role, value, message.identifier, manager.tokenHandler)
             : await Message.createAsync(message.role, value, message.identifier);
         if (counted?.role !== message.role || counted.content !== value || !plainSourceMessage(counted)
-            || !Number.isFinite(counted.tokens) || counted.tokens < 0) throw new TypeError('Unverified token count');
+            || !Number.isFinite(counted.tokens) || counted.tokens < 0) throw new TypeError('token 计数未经验证');
         return counted;
     }
     async function insertExampleMoves(frame, projection, moves) {
@@ -612,12 +612,12 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
         } else { anchor.message.content = ''; anchor.message.tokens = 0; }
         for (const move of moves) for (const node of move.nodes) {
             const parent = findParent(frame.root, node);
-            if (!parent) throw new TypeError('Missing example source');
+            if (!parent) throw new TypeError('缺少示例对话来源');
             parent.collection.collection.splice(parent.index, 1); nodes.push(node);
         }
         if (tail) nodes.push(await countedText(anchor.message, tail));
         const parent = findParent(frame.root, anchor.message);
-        if (!parent) throw new TypeError('Missing example anchor');
+        if (!parent) throw new TypeError('缺少示例对话定位标记');
         parent.collection.collection.splice(parent.index, 1, ...nodes);
     }
     function captureOutlets(templateText, token) {
@@ -750,7 +750,7 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
             const values = [...args.activated.entries.values()];
             if (values.length > MAX_MESSAGES) throw new RangeError('Source limit');
             const records = values.map(entry => {
-                if (!entry || typeof entry.content !== 'string' || typeof entry.world !== 'string' || !Number.isSafeInteger(entry.uid)) throw new TypeError('Unknown source');
+                if (!entry || typeof entry.content !== 'string' || typeof entry.world !== 'string' || !Number.isSafeInteger(entry.uid)) throw new TypeError('无法识别来源');
                 return { world: entry.world, uid: entry.uid, order: entry.order, position: entry.position,
                     depth: entry.depth, role: entry.role, outletName: entry.outletName,
                     constant: Boolean(entry.constant), text: entry.content };
@@ -774,22 +774,22 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
         let count = 0;
         const leaves = [], ancestors = new WeakSet();
         const cloneNode = node => {
-            if (!node || ++count > MAX_MESSAGES * 2) throw new TypeError('Unknown source graph');
+            if (!node || ++count > MAX_MESSAGES * 2) throw new TypeError('无法识别提示词来源关系');
             if (node instanceof MessageCollection) {
-                if (ancestors.has(node)) throw new TypeError('Cyclic source graph');
+                if (ancestors.has(node)) throw new TypeError('提示词来源关系存在循环');
                 ancestors.add(node);
                 const collection = new MessageCollection(node.identifier);
                 try { collection.collection = node.collection.map(cloneNode); }
                 finally { ancestors.delete(node); }
                 return collection;
             }
-            if (!(node instanceof Message)) throw new TypeError('Unknown source object');
+            if (!(node instanceof Message)) throw new TypeError('无法识别来源对象');
             const cloned = Object.create(Message.prototype);
             for (const [key, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(node))) {
-                if (!('value' in descriptor)) throw new TypeError('Unknown source accessor');
+                if (!('value' in descriptor)) throw new TypeError('无法识别来源读取接口');
                 Object.defineProperty(cloned, key, { ...descriptor, value: structuredClone(descriptor.value) });
             }
-            if (!Number.isFinite(cloned.tokens) || cloned.tokens < 0) throw new TypeError('Unknown token count');
+            if (!Number.isFinite(cloned.tokens) || cloned.tokens < 0) throw new TypeError('无法确认 token 计数');
             leaves.push({ message: cloned, source: messageSources.get(node) ?? null });
             return cloned;
         };
@@ -803,7 +803,7 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
         const configuredContextSize = hostSettings.openai_max_context, configuredResponseSize = hostSettings.openai_max_tokens;
         const contextSize = budget?.contextSize ?? configuredContextSize, responseSize = budget?.responseSize ?? configuredResponseSize;
         const session = privateContextKind === 'session' && contextSize === Infinity && responseSize === 0 && completion.tokenBudget === Infinity;
-        if (!session && ![contextSize, responseSize, completion.tokenBudget].every(Number.isFinite)) throw new TypeError('Unknown budget');
+        if (!session && ![contextSize, responseSize, completion.tokenBudget].every(Number.isFinite)) throw new TypeError('无法确认 token 额度');
         const preview = new ChatCompletion(); preview.messages = cloned.root;
         const originalChat = savedGetChat.call(preview);
         const wireParts = new WeakMap(), wireIndices = new WeakMap(), separated = [];
@@ -1221,7 +1221,7 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
             replacement.setTokenBudget(frame.contextSize, frame.responseSize);
             const reserved = privateContextKind === 'session' && frame.contextSize === Infinity ? 0
                 : frame.contextSize - frame.responseSize - frame.remaining - frame.originalTokens;
-            if (!Number.isFinite(reserved) || reserved < 0) throw new TypeError('Unknown reserved budget');
+            if (!Number.isFinite(reserved) || reserved < 0) throw new TypeError('无法确认预留的 token 额度');
             replacement.reserveBudget(reserved);
             if (!replacement.canAfford(frame.root)) throw new RangeError('Changed content exceeds original context');
             replacement.decreaseTokenBudgetBy(frame.root.getTokens());
@@ -1231,16 +1231,16 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
             if (!verifyMigration(plan, rebuilt) || bytes(rebuilt) > MAX_TEXT_BYTES
                 || projection && !frame.squash && !same(rebuilt, projection.desiredChat)
                 || replacement.messages.getTokens() > frame.contextSize - frame.responseSize - reserved
-                || !protectsPayloads(rebuilt, projection?.desiredProtected ?? protectedPayloads)) throw new TypeError('Changed content did not verify');
+                || !protectsPayloads(rebuilt, projection?.desiredProtected ?? protectedPayloads)) throw new TypeError('改动后的内容未通过校验');
             if (!active(token) || !same(enabled(), switches) || !sameBudget(frame) || !same(data.chat, bound.expected)) return;
             const outgoing = sanitizeChat(rebuilt);
             const descriptors = Object.getOwnPropertyDescriptors(data.chat);
             if (!descriptors.length?.writable || Object.entries(descriptors).some(([key, descriptor]) => /^\d+$/u.test(key)
-                && (!('value' in descriptor) || !descriptor.writable || !descriptor.configurable))) throw new TypeError('Read-only chat');
+                && (!('value' in descriptor) || !descriptor.writable || !descriptor.configurable))) throw new TypeError('对话内容只读，无法修改');
             const beforeCommit = [...data.chat];
             try {
                 Array.prototype.splice.call(data.chat, 0, data.chat.length, ...outgoing);
-                if (!same(data.chat, outgoing)) throw new TypeError('Chat update did not apply');
+                if (!same(data.chat, outgoing)) throw new TypeError('对话内容更新未生效');
             } catch (error) {
                 try { Array.prototype.splice.call(data.chat, 0, data.chat.length, ...beforeCommit); } catch { /* Frozen host arrays remain unchanged. */ }
                 throw error;
@@ -1449,7 +1449,7 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
             generation.coreChat = chat;
             return true;
         },
-        subscribeSources(fn) { if (typeof fn !== 'function') throw new TypeError('A source observer is required.'); if (destroyed) return () => {}; sourceListeners.add(fn); return () => sourceListeners.delete(fn); },
+        subscribeSources(fn) { if (typeof fn !== 'function') throw new TypeError('缺少来源观察接口。'); if (destroyed) return () => {}; sourceListeners.add(fn); return () => sourceListeners.delete(fn); },
         setEnabled(owner, value) {
             if (!supported || destroyed || openAi.promptManager !== manager || !Object.hasOwn(MACROS, owner)) return false;
             let current; try { current = getContext(); } catch { return false; }

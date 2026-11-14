@@ -183,7 +183,7 @@ function ensureTab(shell, tab, label) {
 export function mountExtensionSettings(section, { documentRef = globalThis.document, tab = 'general', label = tab, onShow } = {}) {
     const host = documentRef.getElementById('extensions_settings2')
         ?? documentRef.getElementById('extensions_settings');
-    if (!host) throw new Error('Extension settings are unavailable.');
+    if (!host) throw new Error('扩展设置不可用。');
     let shell = shells.get(documentRef);
     if (!shell || documentRef.getElementById(ROOT_ID) !== shell.root) shell = createShell(documentRef, host);
     const entry = ensureTab(shell, tab, label);

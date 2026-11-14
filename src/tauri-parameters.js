@@ -76,7 +76,7 @@ function hasParameterField(container) {
 
 function chooseContainer(data) {
     if (!isRecord(data)) {
-        throw new TypeError('Tauri generation parameters must be an object.');
+        throw new TypeError('Tauri 生成参数必须是对象。');
     }
 
     const nested = isRecord(data.parameters) ? data.parameters : null;
@@ -453,7 +453,7 @@ export function readTauriState(data, { yaml } = {}) {
  * `parameters` wrapper, or one persistent `include_*` settings entry.
  */
 export function applyTauriParameters(data, state, { yaml } = {}) {
-    if (!isRecord(data)) throw new TypeError('Tauri generation parameters must be an object.');
+    if (!isRecord(data)) throw new TypeError('Tauri 生成参数必须是对象。');
     const output = { ...data };
     if (isRecord(data.parameters)) output.parameters = { ...data.parameters };
     const { container: sourceContainer, nested } = chooseContainer(data);

@@ -26,7 +26,7 @@ function frontendPromptBody(data, model) {
         const descriptor = Object.getOwnPropertyDescriptor(data, field);
         if (descriptor && 'value' in descriptor && descriptor.value !== undefined) body[field] = descriptor.value;
     }
-    if (!Array.isArray(body.messages)) throw new TypeError('Frontend messages are unavailable.');
+    if (!Array.isArray(body.messages)) throw new TypeError('前端组装的消息不可用。');
     const raw = JSON.stringify(body);
     if (raw.length > LIMIT.frontendBytes || bytes(raw) > LIMIT.frontendBytes) throw new RangeError('Frontend prompt is too large.');
     return raw;
@@ -391,7 +391,7 @@ export function createPromptInspectorController({ context, getContext = () => co
                         issued = await serverClient.preparePromptInspector({ version: 1, chatId: current.chatId,
                             source: current.source, model: current.model, trace: evidence });
                         if (!stillPreparing()) { disposeTicket(issued?.ticket); return null; }
-                        if (typeof issued?.ticket !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/u.test(issued.ticket)) throw new TypeError('Invalid inspector ticket');
+                        if (typeof issued?.ticket !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/u.test(issued.ticket)) throw new TypeError('提示词查看凭证无效');
                         const request = { version: 1, source: current.source, model: current.model, chatId: current.chatId,
                             promptInspectorTicket: issued.ticket };
                         for (const field of NATIVE_REQUEST_FIELDS) if (data[field] !== undefined && data[field] !== null) request[field] = data[field];
@@ -399,7 +399,7 @@ export function createPromptInspectorController({ context, getContext = () => co
                         if (!stillPreparing()) { disposeNativeTicket(native?.ticket); disposeTicket(issued.ticket); return null; }
                         if (native?.ok !== true || native.source !== current.source || native.transport !== 'native-loopback-http'
                             || typeof native.ticket !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/u.test(native.ticket)
-                            || !native.requestOverrides || typeof native.requestOverrides !== 'object') throw new TypeError('Invalid native preparation');
+                            || !native.requestOverrides || typeof native.requestOverrides !== 'object') throw new TypeError('原生请求准备信息无效');
                         if (pending.size >= LIMIT.tickets) {
                             const first = pending.keys().next().value; cancelReservation(pending.get(first)); disposeTicket(first); pending.delete(first);
                         }
@@ -600,7 +600,7 @@ export function createPromptInspectorController({ context, getContext = () => co
                 recordAvailable: Boolean(record), restored: Boolean(record && (restoredRecord || !recordReservation)), persistence: { ...persistence }, privacyMode: 'tab-session' };
         },
         subscribe(fn) {
-            if (typeof fn !== 'function') throw new TypeError('A listener is required');
+            if (typeof fn !== 'function') throw new TypeError('缺少事件监听函数');
             if (destroyed) return () => {};
             listeners.add(fn); return () => listeners.delete(fn);
         },

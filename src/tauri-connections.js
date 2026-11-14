@@ -28,7 +28,7 @@ function normalizeSource(value) {
 function requireContext(getContext) {
     const context = getContext?.();
     if (!context || typeof context !== 'object') {
-        throw new Error('TauriTavern context is unavailable');
+        throw new Error('TauriTavern 运行上下文不可用');
     }
     return context;
 }
@@ -101,7 +101,7 @@ function unchangedTarget(context, targets, index, target, expected) {
 }
 
 function changedDuringSave(id) {
-    return new Error(`Model Target changed while it was being saved: ${id}`);
+    return new Error(`模型配置在保存期间发生变化：${id}`);
 }
 
 async function defaultBuildConnection(target) {
@@ -143,7 +143,7 @@ export function createTauriConnections({
     const save = async (id, requestedState, { syncGlobal = false } = {}) => {
         const saveId = String(id);
         if (savingIds.has(saveId)) {
-            throw new Error(`Model Target is already being saved: ${id}`);
+            throw new Error(`模型配置正在保存：${id}`);
         }
         savingIds.add(saveId);
         try {
@@ -152,7 +152,7 @@ export function createTauriConnections({
         const index = targets.findIndex(candidate => isSupportedTarget(candidate)
             && String(candidate.id) === saveId);
         if (index < 0) {
-            throw new Error(`Google Gemini Model Target not found: ${id}`);
+            throw new Error(`未找到 Google Gemini 模型配置：${id}`);
         }
 
         const original = structuredClone(targets[index]);
@@ -161,14 +161,14 @@ export function createTauriConnections({
         const state = normalizeState(requestedState);
         const support = getTierSupport(target.model, state.tier, source);
         if (!support.allowed) {
-            throw new Error(support.reason || `${state.tier} is unavailable for ${target.model}`);
+            throw new Error(support.reason || `${state.tier} 不适用于 ${target.model}`);
         }
 
         const needsGlobal = source === VERTEX_SOURCE
             && (state.tier === TIER.FLEX || state.tier === TIER.PRIORITY)
             && String(target['api-url'] || '').trim().toLowerCase() !== 'global';
         if (needsGlobal && !syncGlobal) {
-            throw new Error(`${state.tier} requires the Vertex AI global region; retry with syncGlobal enabled`);
+            throw new Error(`${state.tier} 需要将 Vertex AI 区域设为 global，请启用区域同步后重试`);
         }
         if (needsGlobal) target['api-url'] = 'global';
 
@@ -187,7 +187,7 @@ export function createTauriConnections({
             settingsSaved = true;
             if (!unchangedTarget(context, targets, index, target, expected)) throw changedDuringSave(id);
             if (typeof api?.llmConnections?.save !== 'function') {
-                throw new Error('TauriTavern LLM Connection API is unavailable');
+                throw new Error('TauriTavern 模型连接接口不可用');
             }
             const connection = await buildConnection(structuredClone(target));
             if (!unchangedTarget(context, targets, index, target, expected)) throw changedDuringSave(id);

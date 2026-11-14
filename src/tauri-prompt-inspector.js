@@ -41,7 +41,7 @@ export function createTauriPromptInspectorController({ api, indexLimit = INDEX_L
     maxRecordCodeUnits = MAX_RECORD_CODE_UNITS } = {}) {
     if (!Number.isSafeInteger(indexLimit) || indexLimit < 1 || indexLimit > 256
         || !Number.isSafeInteger(maxRecordCodeUnits) || maxRecordCodeUnits < 1) {
-        throw new TypeError('Invalid Tauri request record limits.');
+        throw new TypeError('Tauri 请求记录的容量限制无效。');
     }
     const logs = api?.dev?.llmApiLogs;
     const supported = supportsTauriPromptInspector(api);
@@ -107,7 +107,7 @@ export function createTauriPromptInspectorController({ api, indexLimit = INDEX_L
             const raw = await logs.getRaw(id);
             if (destroyed || !enabled || serial !== readSerial || selectedId !== id || !availableSelection()) return null;
             if (raw?.id !== id || typeof raw.requestRaw !== 'string' || !raw.requestRaw.length) {
-                throw new TypeError('The native log did not return its request JSON.');
+                throw new TypeError('原生日志未返回请求 JSON。');
             }
             if (raw.requestRaw.length > maxRecordCodeUnits) {
                 status = 'oversize'; error = { code: 'RECORD_TOO_LARGE',
@@ -139,7 +139,7 @@ export function createTauriPromptInspectorController({ api, indexLimit = INDEX_L
         try {
             const values = await logs.index({ limit: indexLimit });
             if (destroyed || !enabled || serial !== indexSerial) return null;
-            if (!Array.isArray(values)) throw new TypeError('Invalid native request index.');
+            if (!Array.isArray(values)) throw new TypeError('原生请求记录索引无效。');
             const fresh = new Map();
             for (const value of values) { const entry = indexEntry(value); if (entry) fresh.set(entry.id, entry); }
             for (const [id, live] of liveEntries) if (live.revision > revision) fresh.set(id, live.entry);
@@ -158,7 +158,7 @@ export function createTauriPromptInspectorController({ api, indexLimit = INDEX_L
             recordAvailable: Boolean(record), selectedId, filters: { ...filters }, index: sorted(), records: visible(),
             privacyMode: 'tauri-native-log', persistence: { status: 'memory-only' }, notice: TAURI_PROMPT_INSPECTOR_NOTICE }),
         subscribe(fn) {
-            if (typeof fn !== 'function') throw new TypeError('A listener is required.');
+            if (typeof fn !== 'function') throw new TypeError('缺少事件监听函数。');
             if (destroyed) return () => {};
             listeners.add(fn); return () => listeners.delete(fn);
         },
@@ -166,7 +166,7 @@ export function createTauriPromptInspectorController({ api, indexLimit = INDEX_L
         setFilters(value = {}) {
             const source = value.source ?? filters.source;
             const model = Object.prototype.hasOwnProperty.call(value, 'model') ? value.model : filters.model;
-            if (label(source, 128) === null || (model !== null && label(model, 512) === null)) throw new TypeError('Invalid request record filter.');
+            if (label(source, 128) === null || (model !== null && label(model, 512) === null)) throw new TypeError('请求记录筛选条件无效。');
             if (destroyed) return;
             if (source !== filters.source || model !== filters.model) { filters = { source, model }; releaseSelection(); emit(); }
         },

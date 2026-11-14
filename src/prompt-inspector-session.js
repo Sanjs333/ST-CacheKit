@@ -104,7 +104,7 @@ export function createPromptInspectorSessionStore({ getStorage = () => globalThi
         catch {
             // Smaller replacement normally succeeds even on quota exhaustion. If storage rejects every
             // write, erase our index rather than risk restoring a cleared/outdated prompt as current.
-            remove(target); throw new Error('Session storage is not writable.');
+            remove(target); throw new Error('无法写入浏览器会话存储。');
         }
     }
     return {

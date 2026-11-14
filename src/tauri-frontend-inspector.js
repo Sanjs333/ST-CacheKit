@@ -197,7 +197,7 @@ export function createTauriFrontendInspectorController({ context, getContext = (
                 notice: TAURI_FRONTEND_PROMPT_NOTICE };
         },
         subscribe(listener) {
-            if (typeof listener !== 'function') throw new TypeError('A listener is required.');
+            if (typeof listener !== 'function') throw new TypeError('缺少事件监听函数。');
             if (destroyed) return () => {};
             listeners.add(listener); return () => listeners.delete(listener);
         },
@@ -282,7 +282,7 @@ export function createTauriFrontendInspector({ context, getContext = () => conte
     getOwner, getSessionStorage, finalRequestCapture = false, isAgentMode, getPromptMode, agentCapture,
     target = globalThis, documentRef = target.document, clipboard = target.navigator?.clipboard,
     createUi = createPromptInspectorUi } = {}) {
-    if (typeof documentRef?.createElement !== 'function') throw new TypeError('A document is required.');
+    if (typeof documentRef?.createElement !== 'function') throw new TypeError('当前环境缺少页面文档接口。');
     const controller = createTauriFrontendInspectorController({ context, getContext, migration, getChatId,
         getOwner, getSessionStorage, finalRequestCapture, isAgentMode, getPromptMode, agentCapture, target });
     const root = documentRef.createElement('section');

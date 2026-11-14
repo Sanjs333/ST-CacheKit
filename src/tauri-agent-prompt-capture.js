@@ -79,7 +79,7 @@ export function createTauriAgentPromptCapture({ api, context,
     maxBodyBytes = 16 * 1024 * 1024, maxInputCodeUnits = 32 * 1024 * 1024,
     listLimit = 16, now = Date.now } = {}) {
     if (![maxBodyBytes, maxInputCodeUnits, listLimit].every(value => Number.isSafeInteger(value) && value > 0)
-        || listLimit > 200) throw new TypeError('Invalid Agent prompt capture limits.');
+        || listLimit > 200) throw new TypeError('Agent 提示词捕获限制无效。');
     const agent = api?.agent, supported = supportsTauriAgentPromptCapture(api), listeners = new Set(), subscriptions = [], dismissals = new Map();
     const externalCurrentChat = typeof getCurrentChat === 'function';
     let enabled = true, destroyed = false, serial = 0, record = null, selectedScope = null, selectedRun = null, selectedOwner = null;
@@ -277,7 +277,7 @@ export function createTauriAgentPromptCapture({ api, context,
             status: matchesOwner ? status : 'idle', record: matchesOwner ? record : null,
             error: matchesOwner && error ? { ...error } : null, scope: matchesOwner && selectedScope ? clone(selectedScope) : null,
             runId: matchesOwner ? selectedRun : null, initialAssemblyOnly: true, privacyMode: 'memory-only' }; },
-        subscribe(fn) { if (typeof fn !== 'function') throw new TypeError('A listener is required.'); if (destroyed) return () => {}; listeners.add(fn); return () => listeners.delete(fn); },
+        subscribe(fn) { if (typeof fn !== 'function') throw new TypeError('缺少事件监听函数。'); if (destroyed) return () => {}; listeners.add(fn); return () => listeners.delete(fn); },
         setEnabled(value) { enabled = value === true; clear(); return enabled; },
         destroy() {
             if (destroyed) return;

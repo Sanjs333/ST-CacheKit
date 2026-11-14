@@ -18,7 +18,7 @@ const CONTEXT_FIELDS = new Set(['errorCode', 'statusCode', 'durationMs', 'model'
     'phase', 'requestId', 'clientSessionId', 'clientVersion', 'protocolVersion', 'stream', 'paygoOnly', 'serverStatus']);
 
 function requireDocument(documentRef) {
-    if (!documentRef || typeof documentRef.createElement !== 'function') throw new TypeError('A document implementation is required.');
+    if (!documentRef || typeof documentRef.createElement !== 'function') throw new TypeError('当前环境缺少页面文档接口。');
     return documentRef;
 }
 
@@ -185,7 +185,7 @@ export function createLogViewerContent(text, {
                     event.stopPropagation();
                     copyRecordButton.disabled = true;
                     try {
-                        if (typeof clipboard?.writeText !== 'function') throw new Error('Clipboard unavailable');
+                        if (typeof clipboard?.writeText !== 'function') throw new Error('剪贴板不可用');
                         await clipboard.writeText(record.raw);
                         showFeedback(key('preview.record_copied'));
                     } catch { showFeedback(key('preview.copy_failed'), true); }
@@ -250,7 +250,7 @@ export function createLogViewerContent(text, {
     listen(copyButton, 'click', async () => {
         copyButton.disabled = true;
         try {
-            if (typeof clipboard?.writeText !== 'function') throw new Error('Clipboard unavailable');
+            if (typeof clipboard?.writeText !== 'function') throw new Error('剪贴板不可用');
             await clipboard.writeText(model.raw); showFeedback(key('preview.copied'));
         } catch { showFeedback(key('preview.copy_failed'), true); }
         finally { if (!disposed) copyButton.disabled = false; }
@@ -312,7 +312,7 @@ export function downloadLogText(text, {
 } = {}) {
     const resolvedDocument = requireDocument(documentRef);
     if (typeof BlobImpl !== 'function' || typeof urlApi?.createObjectURL !== 'function' || typeof urlApi?.revokeObjectURL !== 'function') {
-        throw new TypeError('Browser download APIs are unavailable.');
+        throw new TypeError('浏览器下载接口不可用。');
     }
 
     const blob = new BlobImpl([String(text)], { type: 'text/plain;charset=utf-8' });

@@ -11,7 +11,7 @@ const scalar = value => value == null || typeof value === 'boolean'
 function field(object, key) {
     const descriptor = Object.getOwnPropertyDescriptor(object, key);
     if (!descriptor) return undefined;
-    if (!('value' in descriptor)) throw new TypeError('Unknown regex property');
+    if (!('value' in descriptor)) throw new TypeError('无法识别正则设置字段');
     return descriptor.value;
 }
 
@@ -70,19 +70,19 @@ export function captureWorldInfoRendering({ records, regex, context, parseRegex,
     try {
         const rendered = records.map(record => {
             if (!record || typeof record.text !== 'string' || !Number.isInteger(record.position)
-                || record.position < 0 || record.position > 7) throw new TypeError('Unknown world-info source');
+                || record.position < 0 || record.position > 7) throw new TypeError('无法识别世界书来源');
             inputBytes += bytes(record.text);
             if (inputBytes > LIMIT.bytes) throw new RangeError('Source limit');
             let text = record.text;
             const depth = record.position === 4 ? record.depth ?? defaultDepth : null;
-            if (depth !== null && (typeof depth !== 'number' || !Number.isFinite(depth))) throw new TypeError('Unknown source depth');
+            if (depth !== null && (typeof depth !== 'number' || !Number.isFinite(depth))) throw new TypeError('无法识别来源深度');
             for (const script of state.scripts) {
                 if (!text || !applies(script, depth)) continue;
                 work += text.length;
                 if (work > LIMIT.workChars) throw new RangeError('Regex work limit');
                 const expression = parseRegex(script.findRegex);
                 if (!expression) continue; // Stock leaves invalid patterns unchanged.
-                if (!(expression instanceof RegExp)) throw new TypeError('Unknown regex parser');
+                if (!(expression instanceof RegExp)) throw new TypeError('无法识别正则处理接口');
                 expression.lastIndex = 0;
                 text = text.replace(expression, (...args) => {
                     if (++matches > LIMIT.matches) throw new RangeError('Regex match limit');
@@ -90,14 +90,14 @@ export function captureWorldInfoRendering({ records, regex, context, parseRegex,
                         const groups = args[args.length - 1];
                         const match = num ? args[Number(num)] : groups && typeof groups === 'object' ? groups[name] : undefined;
                         if (!match) return '';
-                        if (typeof match !== 'string') throw new TypeError('Unknown regex group');
+                        if (typeof match !== 'string') throw new TypeError('无法识别正则匹配分组');
                         let result = match;
                         for (const trim of script.trimStrings) result = result.replaceAll(trim, '');
                         return result;
                     });
                     // Captured input can introduce macros even when the regex
                     // itself is literal. Do not execute or guess those values.
-                    if (replacement.includes('{{')) throw Object.assign(new Error('Dynamic replacement'), { code: 'WI_REGEX_DYNAMIC' });
+                    if (replacement.includes('{{')) throw Object.assign(new Error('动态正则替换'), { code: 'WI_REGEX_DYNAMIC' });
                     return replacement;
                 });
                 if (text.length > LIMIT.bytes || bytes(text) > LIMIT.bytes) throw new RangeError('Regex output limit');

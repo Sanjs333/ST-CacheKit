@@ -101,9 +101,9 @@ export function createCostUi({
     documentRef = globalThis.document,
     localize = createLocalizer((fallback, key) => context?.translate?.(fallback, key)),
 }) {
-    if (!documentRef?.createElement) throw new TypeError('A document implementation is required.');
+    if (!documentRef?.createElement) throw new TypeError('当前环境缺少页面文档接口。');
     const menu = documentRef.getElementById('extensionsMenu');
-    if (!menu) throw new Error('#extensionsMenu is unavailable.');
+    if (!menu) throw new Error('酒馆扩展菜单不可用。');
 
     const menuItem = element(documentRef, 'div', 'list-group-item flex-container flexGap5 interactable vertex-paygo-cost-menu');
     menuItem.setAttribute('role', 'button');

@@ -16,7 +16,7 @@ const ownValue = (value, key) => {
 };
 
 function stateKey(value) {
-    if (typeof value !== 'string' || !/^__vertexPayGo[A-Za-z0-9_]{1,96}$/u.test(value)) throw new TypeError('Invalid Agent request state key.');
+    if (typeof value !== 'string' || !/^__vertexPayGo[A-Za-z0-9_]{1,96}$/u.test(value)) throw new TypeError('Agent 请求状态字段无效。');
     return value;
 }
 function replaceOwn(value, replacements = new Map(), removed = []) {
@@ -93,8 +93,8 @@ export function installTauriAgentTransport({ target = globalThis, requestStateKe
     prepareParameters, observeSnapshot, getPromptMigration = () => null,
     loadAssemblyModules, onAssembly } = {}) {
     stateKey(requestStateKey);
-    if (prepareParameters !== undefined && typeof prepareParameters !== 'function') throw new TypeError('An Agent parameter preparer must be a function.');
-    if (observeSnapshot !== undefined && typeof observeSnapshot !== 'function') throw new TypeError('An Agent snapshot observer must be a function.');
+    if (prepareParameters !== undefined && typeof prepareParameters !== 'function') throw new TypeError('Agent 参数准备接口必须是函数。');
+    if (observeSnapshot !== undefined && typeof observeSnapshot !== 'function') throw new TypeError('Agent 快照观察接口必须是函数。');
     const broker = target?.__TAURITAVERN__?.invoke?.broker;
     const original = broker?.invoke;
     let assembly;
@@ -133,7 +133,7 @@ export function installTauriAgentTransport({ target = globalThis, requestStateKe
             if (!prepareParameters || !object(parameters)) return dispatch(this, command, args, extras, snapshot);
             const prepared = prepareParameters(parameters, metadata);
             const continueDispatch = next => {
-                if (!object(next)) throw new TypeError('Agent parameter preparation must return an object.');
+                if (!object(next)) throw new TypeError('Agent 参数准备接口必须返回对象。');
                 const preparedSnapshot = next === parameters ? snapshot
                     : replaceOwn(snapshot, new Map([['generationParameters', next]]));
                 return dispatch(this, command, args, extras, preparedSnapshot);

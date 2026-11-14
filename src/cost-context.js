@@ -34,7 +34,7 @@ function identity(context) {
 export function createCostContext({ getContext, idFactory = createConversationId, getPricing = getActivePricing, now = Date.now }) {
     function settings(context = getContext()) {
         const root = context.extensionSettings;
-        if (!root) throw new Error('SillyTavern extension settings are unavailable.');
+        if (!root) throw new Error('SillyTavern 扩展设置不可用。');
         const value = root[SETTINGS_KEY] ??= { conversations: {}, prices: {} };
         value.conversations ??= {};
         value.prices ??= {};
@@ -106,7 +106,7 @@ export function createCostContext({ getContext, idFactory = createConversationId
         const validated = {};
         for (const [key, value] of Object.entries(prices)) {
             const rate = normalizePrice(value);
-            if (!rate) throw new TypeError('Invalid token price.');
+            if (!rate) throw new TypeError('token 单价无效。');
             validated[key] = rate;
         }
         const context = getContext();

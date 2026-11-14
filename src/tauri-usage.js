@@ -6,11 +6,11 @@ const COUNTS = ['promptTokenCount', 'cachedContentTokenCount', 'candidatesTokenC
 const DETAILS = ['promptTokensDetails', 'cacheTokensDetails', 'candidatesTokensDetails'];
 
 function method(store, name) {
-    if (typeof store?.[name] !== 'function') throw new TypeError(`TauriTavern store is missing ${name}.`);
+    if (typeof store?.[name] !== 'function') throw new TypeError(`TauriTavern 存储接口缺少 ${name}。`);
     return store[name].bind(store);
 }
 function table(chatId) {
-    if (typeof chatId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(chatId)) throw new TypeError('A valid conversation usage ID is required.');
+    if (typeof chatId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(chatId)) throw new TypeError('需要有效的对话用量 ID。');
     return `chat-${chatId}`;
 }
 function metadata(value, idFactory) {
@@ -19,7 +19,7 @@ function metadata(value, idFactory) {
     const price = normalizePrice(value?.price);
     if (price) out.price = price;
     out.id ||= idFactory?.();
-    if (typeof out.id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(out.id)) throw new TypeError('Usage metadata requires a safe id.');
+    if (typeof out.id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(out.id)) throw new TypeError('用量记录需要有效的 ID。');
     table(out.chatId);
     return out;
 }
@@ -92,7 +92,7 @@ export function createTauriUsageClient({ store, notifyWarning = () => {}, idFact
         console.warn('[提示词缓存优化] Usage ledger write failed.', error);
     }
     function persist(record) {
-        if (destroyed) return Promise.reject(new Error('Usage client has been destroyed.'));
+        if (destroyed) return Promise.reject(new Error('用量读取接口已释放。'));
         const task = writes.then(() => setJson({ namespace: NS, table: table(record.chatId), key: record.id, value: record }));
         writes = task.catch(error => { writeError = error; warn(error); });
         return task;
@@ -103,7 +103,7 @@ export function createTauriUsageClient({ store, notifyWarning = () => {}, idFact
         void persist(record).catch(() => {}); return record;
     }
     function observeResponse(response, meta, { signal } = {}) {
-        if (!(response instanceof Response)) throw new TypeError('A Response is required.');
+        if (!(response instanceof Response)) throw new TypeError('需要有效的 Response 响应对象。');
         const recordBase = base(meta);
         if (!response.ok) { void persist({ ...recordBase, status: 'failed', errorCode: `UPSTREAM_HTTP_${response.status}`, usage: null }).catch(() => {}); return response; }
         if (!response.body) { void persist({ ...recordBase, status: 'incomplete', errorCode: 'USAGE_METADATA_MISSING', usage: null }).catch(() => {}); return response; }
@@ -139,9 +139,9 @@ export function createTauriUsageClient({ store, notifyWarning = () => {}, idFact
         const body = new ReadableStream({
             async pull(controller) {
                 try {
-                    if (aborted) throw signal?.reason ?? new DOMException('The operation was aborted.', 'AbortError');
+                    if (aborted) throw signal?.reason ?? new DOMException('操作已取消。', 'AbortError');
                     const result = await reader.read();
-                    if (aborted) throw signal?.reason ?? new DOMException('The operation was aborted.', 'AbortError');
+                    if (aborted) throw signal?.reason ?? new DOMException('操作已取消。', 'AbortError');
                     if (result.done) {
                         if (!limited || (streaming && !discardEvent)) buffer += decoder.decode();
                         if (streaming && buffer.trim() && !discardEvent) parseEvent(buffer, value => { usage = merge(usage, value); responseError ||= Boolean(value?.error); });
@@ -180,7 +180,7 @@ export function createTauriUsageClient({ store, notifyWarning = () => {}, idFact
         await flush();
         const tableName = table(chatId);
         const keys = await listKeys({ namespace: NS, table: tableName });
-        if (!Array.isArray(keys)) throw new TypeError('Invalid TauriTavern usage key list.');
+        if (!Array.isArray(keys)) throw new TypeError('TauriTavern 用量记录索引无效。');
         const records = [];
         let truncated = false;
         let cursor = 0;

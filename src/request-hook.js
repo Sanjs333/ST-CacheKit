@@ -114,7 +114,7 @@ export function createRequestHook({
     usageProvider = () => ({}),
 }) {
     if (typeof stateProvider !== 'function') {
-        throw new TypeError('stateProvider must be a function.');
+        throw new TypeError('状态读取接口必须是函数。');
     }
 
     const shownWarningKeys = new Set();

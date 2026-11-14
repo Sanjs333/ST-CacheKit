@@ -3,6 +3,7 @@
  * License, v. 2.0. https://mozilla.org/MPL/2.0/ */
 
 import { isGoogleSource } from './constants.js';
+import { localizePluginErrorMessage } from './i18n.js';
 
 export const GEMINI4_MODELS = Object.freeze(['gemini-4-carbon', 'gemini-4-argon', 'gemini-4-argon-cyber-permissive']);
 export const GEMINI4_MODEL_LIMIT = 1048576;
@@ -41,9 +42,19 @@ const ERROR_KEYS = {
 };
 
 function localizeError(error, localize) {
-    if (!error || typeof error !== 'object' || !Object.hasOwn(ERROR_KEYS, error.code)) return null;
-    const entry = ERROR_KEYS[error.code](error.details && typeof error.details === 'object' ? error.details : {});
-    return entry ? { ...error, message: localize(...entry) } : null;
+    if (!error || typeof error !== 'object') return null;
+    const entry = Object.hasOwn(ERROR_KEYS, error.code)
+        ? ERROR_KEYS[error.code](error.details && typeof error.details === 'object' ? error.details : {}) : null;
+    if (entry) return { ...error, message: localize(...entry) };
+    const message = localizePluginErrorMessage(localize, error);
+    return message ? { ...error, message } : null;
+}
+
+function localizeErrorPayload(data, localize) {
+    if (!data || typeof data !== 'object') return null;
+    if (data.error === true) return localizeError(data, localize);
+    const error = localizeError(data.error, localize);
+    return error ? { ...data, error, message: error.message } : null;
 }
 
 function rebuildResponse(response, body) {
@@ -56,35 +67,47 @@ function rebuildResponse(response, body) {
 
 /**
  * The host shows data.error.message from failed responses and SSE events
- * verbatim. Translate the server's English diagnoses for known error codes.
+ * verbatim. Localize plugin errors in both nested and flat response bodies.
  */
 export async function localizeGemini4Response(response, localize) {
     if (typeof localize !== 'function' || !response) return response;
     if (!response.ok) {
         let data;
         try { data = await response.clone().json(); } catch { return response; }
-        const error = localizeError(data?.error, localize);
-        return error ? rebuildResponse(response, JSON.stringify({ ...data, error, message: error.message })) : response;
+        const localized = localizeErrorPayload(data, localize);
+        return localized ? rebuildResponse(response, JSON.stringify(localized)) : response;
     }
     if (!response.body || !/^text\/event-stream/iu.test(response.headers.get('content-type') ?? '')) return response;
     const decoder = new TextDecoder();
     const encoder = new TextEncoder();
     let buffer = '';
     const rewrite = frame => {
-        const data = frame.split(/\r?\n/u).filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
-        if (!data.startsWith('{"error"')) return frame;
+        const lines = frame.split(/\r?\n/u);
+        const data = lines.filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
+        if (!data.trimStart().startsWith('{') || !data.includes('"error"')) return frame;
         try {
             const parsed = JSON.parse(data);
-            const error = localizeError(parsed.error, localize);
-            return error ? `data: ${JSON.stringify({ ...parsed, error })}` : frame;
+            const localized = localizeErrorPayload(parsed, localize);
+            if (!localized) return frame;
+            let written = false;
+            return lines.flatMap(line => {
+                if (!line.startsWith('data:')) return [line];
+                if (written) return [];
+                written = true;
+                return [`data: ${JSON.stringify(localized)}`];
+            }).join(frame.includes('\r\n') ? '\r\n' : '\n');
         } catch { return frame; }
     };
     return rebuildResponse(response, response.body.pipeThrough(new TransformStream({
         transform(chunk, controller) {
             buffer += decoder.decode(chunk, { stream: true });
-            const frames = buffer.split(/\r?\n\r?\n/u);
-            buffer = frames.pop();
-            for (const frame of frames) controller.enqueue(encoder.encode(`${rewrite(frame)}\n\n`));
+            for (;;) {
+                const separator = /\r?\n\r?\n/u.exec(buffer);
+                if (!separator) break;
+                const frame = buffer.slice(0, separator.index);
+                buffer = buffer.slice(separator.index + separator[0].length);
+                controller.enqueue(encoder.encode(rewrite(frame) + separator[0]));
+            }
         },
         flush(controller) {
             buffer += decoder.decode();

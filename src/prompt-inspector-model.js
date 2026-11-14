@@ -463,7 +463,7 @@ function splitsSurrogate(text, offset) {
  * shortened, even when the scan limit forces one whole-text replacement.
  */
 export function diffPromptInspectorText(before, after, options = {}) {
-    if (typeof before !== 'string' || typeof after !== 'string') throw new TypeError('Text comparisons require strings');
+    if (typeof before !== 'string' || typeof after !== 'string') throw new TypeError('文本比较需要字符串内容');
     const maxScan = limit(options.maxScanCodeUnits, PROMPT_INSPECTOR_MODEL_LIMITS.textScanCodeUnits);
     const equal = before === after;
     let prefix = 0, suffix = 0, scanned = 0, bounded = false;

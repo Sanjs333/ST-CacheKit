@@ -83,7 +83,7 @@ export async function installGemini4HostCompatibility({
     };
     const original = host.Message?.fromPromptAsync;
     if (typeof original !== 'function' || typeof host.setOpenAIMessages !== 'function') {
-        throw new Error('Gemini 4 compatibility requires the host Message factory and setOpenAIMessages exports.');
+        throw new Error('Gemini 4 兼容功能需要酒馆提供 Message 工厂及 setOpenAIMessages 接口。');
     }
     const attach = async (message, prompt, source) => {
         if (!active() || !settings().media_inlining || !captured) return message;
