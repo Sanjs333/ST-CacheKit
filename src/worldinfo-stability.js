@@ -16,6 +16,28 @@ export function isFinalWorldInfoScan(args) {
 
 export const WORLDINFO_STABILITY_SETTINGS_KEY = 'vertex-paygo-worldinfo-stability';
 
+function initializeWorldInfoStabilitySettings(context) {
+    const settings = context?.extensionSettings;
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)
+        || typeof context.saveSettingsDebounced !== 'function') return;
+    const stored = settings[WORLDINFO_STABILITY_SETTINGS_KEY];
+    if (typeof stored?.enabled === 'boolean') return;
+    const existed = Object.hasOwn(settings, WORLDINFO_STABILITY_SETTINGS_KEY);
+    try {
+        settings[WORLDINFO_STABILITY_SETTINGS_KEY] = {
+            ...(stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {}),
+            enabled: true,
+        };
+        context.saveSettingsDebounced();
+    } catch {
+        // The implicit ON default still works when the host cannot save settings.
+        try {
+            if (existed) settings[WORLDINFO_STABILITY_SETTINGS_KEY] = stored;
+            else delete settings[WORLDINFO_STABILITY_SETTINGS_KEY];
+        } catch { /* Read-only host settings retain their original value. */ }
+    }
+}
+
 // Stay within one book and the exact insertion configuration. In particular,
 // do not infer a host's default depth/role, change author priorities, or sort
 // the pre-scan candidates (which would affect triggering and budget selection).
@@ -185,6 +207,7 @@ export function installWorldInfoStability({ context, getContext = () => context,
     renderEntryText = entry => entry.content, reverseFor = entry => entry.position !== 7,
     digest = digestText, idFactory = () => globalThis.crypto.randomUUID(),
     receiptAttempts = 6, receiptDelayMs = 250 } = {}) {
+    initializeWorldInfoStabilitySettings(getContext());
     const event = context?.eventTypes?.WORLDINFO_SCAN_DONE;
     const hookKind = typeof event === 'string' ? 'native' : null;
     const source = context?.eventSource;

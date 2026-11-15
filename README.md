@@ -4,7 +4,7 @@ SillyTavern / Luker / TauriTavern 的提示词整理、缓存诊断与费用统�
 
 ## 功能
 
-- 世界书稳定排序，支持通过 `{{cache_green}}`、`{{cache_depth}}` 整理提示词。
+- 新安装默认开启世界书稳定排序，支持通过 `{{cache_green}}`、`{{cache_depth}}` 整理提示词。
 - 查看上一轮提示词、来源和请求记录。
 - 查看 Google 缓存用量、消息费用与对话费用估算。
 - Google AI Studio / Vertex AI 的 Standard、Flex 层级切换，支持 Gemini 4 Hydrogen / Carbon / Argon。

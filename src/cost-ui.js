@@ -196,7 +196,7 @@ export function createCostUi({
                 const table = element(documentRef, 'table', 'vertex-paygo-cost-table');
                 const head = element(documentRef, 'thead');
                 const headRow = element(documentRef, 'tr');
-                for (const title of ['时间', '模型 / 层级', '状态', '输入', '缓存', localize('vertex_paygo.costs.cache_hit_rate'), '输出', '思考', '费用']) headRow.append(element(documentRef, 'th', '', title));
+                for (const title of ['请求时间', '模型 / 层级', '状态', '输入', '缓存', localize('vertex_paygo.costs.cache_hit_rate'), '输出', '思考', '费用']) headRow.append(element(documentRef, 'th', '', title));
                 head.append(headRow);
                 const body = element(documentRef, 'tbody');
                 // Sum the entire ledger, but bound the number of live DOM rows.

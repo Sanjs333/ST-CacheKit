@@ -30,6 +30,10 @@
 .vertex-paygo-cost-feedback[data-state="error"] { color: var(--fullred); }
 .vertex-paygo-cost-feedback[data-state="success"] { color: var(--green); }
 .vertex-paygo-cost-menu { cursor: pointer; }
+/* Keep text controls compact in the settings drawer, including touch layouts. */
+#vertex-paygo-extension-settings :is(input, textarea, select) {
+    font-size: min(13px, 0.9em) !important;
+}
 @media (max-width: 700px) {
     .vertex-paygo-cost { min-width: 0; }
     .vertex-paygo-cost-price-form { grid-template-columns: 1fr; }
@@ -2219,8 +2223,8 @@ select[data-vertex-paygo-control="select"] option {
 
 /* Protect only our icons. Native chat icons and other extensions retain their
  * own styling; known glyphs also withstand theme overrides of ::before. */
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid,
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid::before {
+[data-vertex-paygo-theme] .fa-solid,
+[data-vertex-paygo-theme] .fa-solid::before {
     display: inline-block !important;
     font-family: "Font Awesome 6 Free" !important;
     font-weight: 900 !important;
@@ -2231,40 +2235,40 @@ select[data-vertex-paygo-control="select"] option {
     background-clip: border-box !important;
     -webkit-text-fill-color: currentColor !important;
 }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid {
+[data-vertex-paygo-theme] .fa-solid {
     color: inherit !important;
     width: auto !important;
     height: auto !important;
     min-width: 0 !important;
     min-height: 0 !important;
 }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid::before { font-size: inherit !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-angle-right::before { content: "\f105" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-chart-simple::before { content: "\e473" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-chevron-left::before { content: "\f053" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-chevron-right::before { content: "\f054" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-chevron-up::before { content: "\f077" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-chevron-down::before { content: "\f078" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-circle-chevron-down::before { content: "\f13a" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-circle-chevron-up::before { content: "\f139" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-coins::before { content: "\f51e" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-compress::before { content: "\f066" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-copy::before { content: "\f0c5" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-download::before { content: "\f019" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-eraser::before { content: "\f12d" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-expand::before { content: "\f065" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-file-lines::before { content: "\f15c" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-filter-circle-xmark::before { content: "\e17b" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-gear::before { content: "\f013" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-layer-group::before { content: "\f5fd" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-list-ul::before { content: "\f0ca" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-location-dot::before { content: "\f3c5" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-robot::before { content: "\f544" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-rotate::before { content: "\f2f1" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-rotate-right::before { content: "\f2f9" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-sliders::before { content: "\f1de" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-user::before { content: "\f007" !important; }
-:is([data-vertex-paygo-theme], .vertex-paygo-cost-menu) .fa-solid.fa-xmark::before { content: "\f00d" !important; }
+[data-vertex-paygo-theme] .fa-solid::before { font-size: inherit !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-angle-right::before { content: "\f105" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-chart-simple::before { content: "\e473" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-chevron-left::before { content: "\f053" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-chevron-right::before { content: "\f054" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-chevron-up::before { content: "\f077" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-chevron-down::before { content: "\f078" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-circle-chevron-down::before { content: "\f13a" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-circle-chevron-up::before { content: "\f139" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-coins::before { content: "\f51e" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-compress::before { content: "\f066" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-copy::before { content: "\f0c5" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-download::before { content: "\f019" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-eraser::before { content: "\f12d" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-expand::before { content: "\f065" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-file-lines::before { content: "\f15c" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-filter-circle-xmark::before { content: "\e17b" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-gear::before { content: "\f013" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-layer-group::before { content: "\f5fd" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-list-ul::before { content: "\f0ca" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-location-dot::before { content: "\f3c5" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-robot::before { content: "\f544" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-rotate::before { content: "\f2f1" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-rotate-right::before { content: "\f2f9" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-sliders::before { content: "\f1de" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-user::before { content: "\f007" !important; }
+[data-vertex-paygo-theme] .fa-solid.fa-xmark::before { content: "\f00d" !important; }
 
 #vertex-paygo-worldinfo-stability .vertex-paygo-compact-switch {
     appearance: none !important;
