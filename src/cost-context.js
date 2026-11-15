@@ -82,7 +82,14 @@ export function createCostContext({ getContext, idFactory = createConversationId
     function catalogPrices() {
         const catalog = getPricing();
         const today = new Date(now()).toISOString().slice(0, 10);
-        const entries = catalog.entries.filter(entry => !entry.validUntil || today <= entry.validUntil);
+        const entries = catalog.entries.flatMap(entry => {
+            if (!entry.validUntil || today <= entry.validUntil) return [entry];
+            const rate = normalizePrice(entry.afterExpiry);
+            // Scheduled catalog rates affect new requests; saved request prices
+            // and manual overrides retain their own values.
+            return rate ? [{ source: entry.source, model: entry.model, tier: entry.tier,
+                sourceUrl: entry.sourceUrl, ...rate }] : [];
+        });
         return { catalog, entries };
     }
 

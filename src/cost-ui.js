@@ -105,11 +105,13 @@ export function createCostUi({
     const menu = documentRef.getElementById('extensionsMenu');
     if (!menu) throw new Error('酒馆扩展菜单不可用。');
 
-    const menuItem = element(documentRef, 'div', 'list-group-item flex-container flexGap5 interactable vertex-paygo-cost-menu');
+    const menuItem = element(documentRef, 'div', 'list-group-item flex-container flexGap5 vertex-paygo-cost-menu');
     menuItem.setAttribute('role', 'button');
     menuItem.setAttribute('tabindex', '0');
-    const icon = element(documentRef, 'i', 'fa-solid fa-coins extensionsMenuExtensionButton');
+    const icon = element(documentRef, 'div', 'fa-solid fa-coins extensionsMenuExtensionButton');
+    icon.setAttribute('aria-hidden', 'true');
     const label = element(documentRef, 'span', '', localize('vertex_paygo.costs.title'));
+    label.setAttribute('data-i18n', 'vertex_paygo.costs.title');
     menuItem.append(icon, label);
     menu.append(menuItem);
 

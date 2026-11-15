@@ -5,7 +5,7 @@
 import { isGoogleSource } from './constants.js';
 import { localizePluginErrorMessage } from './i18n.js';
 
-export const GEMINI4_MODELS = Object.freeze(['gemini-4-carbon', 'gemini-4-argon', 'gemini-4-argon-cyber-permissive']);
+export const GEMINI4_MODELS = Object.freeze(['gemini-4-hydrogen', 'gemini-4-carbon', 'gemini-4-argon', 'gemini-4-argon-cyber-permissive']);
 export const GEMINI4_MODEL_LIMIT = 1048576;
 export const isGemini4Model = model => GEMINI4_MODELS.includes(model);
 export const GEMINI4_NATIVE_ROUTE = '/api/plugins/vertex-paygo/native-gemini/generate';

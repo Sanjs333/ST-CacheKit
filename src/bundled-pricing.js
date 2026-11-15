@@ -2,20 +2,23 @@
  * Copyright (c) 2026 Mana Nekoha
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0.
- * Carbon rates verified 2026-11-12; other entries retain their existing values.
+ * Gemini 4 rates verified 2026-11-15; other entries retain their existing values.
  * Vertex AI entries use the published Global base rates.
  */
 
 export const BUNDLED_PRICING = {
-    updatedAt: '2026-11-11',
+    updatedAt: '2026-11-15',
     currency: 'USD',
     unit: 'per_million_tokens',
     entries: [
-        { source: 'vertexai', model: 'gemini-4-carbon', tier: 'standard', input: 2, cachedInput: 0.1, output: 10, validUntil: '2026-11-30', sourceUrl: 'https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing' },
-        { source: 'makersuite', model: 'gemini-4-carbon', tier: 'standard', input: 2, cachedInput: 0.1, output: 10, validUntil: '2026-11-30', sourceUrl: 'https://ai.google.dev/gemini-api/docs/pricing' },
-        { source: 'makersuite', model: 'gemini-4-carbon', tier: 'flex', input: 1, cachedInput: 0.05, output: 5, validUntil: '2026-11-30', sourceUrl: 'https://ai.google.dev/gemini-api/docs/pricing' },
-        { source: 'vertexai', model: 'gemini-4-argon', tier: 'standard', input: 2, cachedInput: 0.1, output: 10, sourceUrl: 'https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing' },
-        { source: 'vertexai', model: 'gemini-4-argon', tier: 'flex', input: 1, cachedInput: 0.05, output: 5, sourceUrl: 'https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing' },
+        { source: 'vertexai', model: 'gemini-4-hydrogen', tier: 'standard', input: 1.5, cachedInput: 0.075, output: 7.5, sourceUrl: 'https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing' },
+        { source: 'makersuite', model: 'gemini-4-hydrogen', tier: 'standard', input: 1.5, cachedInput: 0.075, output: 7.5, sourceUrl: 'https://ai.google.dev/gemini-api/docs/pricing' },
+        { source: 'makersuite', model: 'gemini-4-hydrogen', tier: 'flex', input: 0.75, cachedInput: 0.0375, output: 3.75, sourceUrl: 'https://ai.google.dev/gemini-api/docs/pricing' },
+        { source: 'vertexai', model: 'gemini-4-carbon', tier: 'standard', input: 2, cachedInput: 0.1, output: 10, validUntil: '2026-11-30', afterExpiry: { input: 4, cachedInput: 0.2, output: 20 }, sourceUrl: 'https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing' },
+        { source: 'makersuite', model: 'gemini-4-carbon', tier: 'standard', input: 2, cachedInput: 0.1, output: 10, validUntil: '2026-11-30', afterExpiry: { input: 4, cachedInput: 0.2, output: 20 }, sourceUrl: 'https://ai.google.dev/gemini-api/docs/pricing' },
+        { source: 'makersuite', model: 'gemini-4-carbon', tier: 'flex', input: 1, cachedInput: 0.05, output: 5, validUntil: '2026-11-30', afterExpiry: { input: 2, cachedInput: 0.1, output: 10 }, sourceUrl: 'https://ai.google.dev/gemini-api/docs/pricing' },
+        { source: 'vertexai', model: 'gemini-4-argon', tier: 'standard', input: 2, cachedInput: 0.1, output: 10, validUntil: '2026-11-30', afterExpiry: { input: 4, cachedInput: 0.2, output: 20 }, sourceUrl: 'https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing' },
+        { source: 'vertexai', model: 'gemini-4-argon', tier: 'flex', input: 1, cachedInput: 0.05, output: 5, validUntil: '2026-11-30', afterExpiry: { input: 2, cachedInput: 0.1, output: 10 }, sourceUrl: 'https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing' },
         { source: 'vertexai', model: 'gemini-3.8-flash', tier: 'standard', input: 0.75, cachedInput: 0.075, output: 3.75, validUntil: '2026-12-31', sourceUrl: 'https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing' },
         { source: 'vertexai', model: 'gemini-3.8-flash', tier: 'flex', input: 0.375, cachedInput: 0.0375, output: 1.875, validUntil: '2026-12-31', sourceUrl: 'https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing' },
         { source: 'vertexai', model: 'gemini-3.8-flash', tier: 'priority', input: 1.35, cachedInput: 0.135, output: 6.75, validUntil: '2026-12-31', sourceUrl: 'https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing' },
@@ -44,8 +47,8 @@ export const BUNDLED_PRICING = {
         { source: 'vertexai', model: 'gemini-2.5-flash', tier: 'priority', input: 0.54, cachedInput: 0.054, output: 4.5, sourceUrl: 'https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing' },
         { source: 'vertexai', model: 'gemini-2.5-flash-lite', tier: 'standard', input: 0.1, cachedInput: 0.01, output: 0.4, sourceUrl: 'https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing' },
         { source: 'vertexai', model: 'gemini-2.5-flash-lite', tier: 'priority', input: 0.18, cachedInput: 0.018, output: 0.72, sourceUrl: 'https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing' },
-        { source: 'makersuite', model: 'gemini-4-argon', tier: 'standard', input: 2, cachedInput: 0.1, output: 10, sourceUrl: 'https://ai.google.dev/gemini-api/docs/pricing' },
-        { source: 'makersuite', model: 'gemini-4-argon', tier: 'flex', input: 1, cachedInput: 0.05, output: 5, sourceUrl: 'https://ai.google.dev/gemini-api/docs/pricing' },
+        { source: 'makersuite', model: 'gemini-4-argon', tier: 'standard', input: 2, cachedInput: 0.1, output: 10, validUntil: '2026-11-30', afterExpiry: { input: 4, cachedInput: 0.2, output: 20 }, sourceUrl: 'https://ai.google.dev/gemini-api/docs/pricing' },
+        { source: 'makersuite', model: 'gemini-4-argon', tier: 'flex', input: 1, cachedInput: 0.05, output: 5, validUntil: '2026-11-30', afterExpiry: { input: 2, cachedInput: 0.1, output: 10 }, sourceUrl: 'https://ai.google.dev/gemini-api/docs/pricing' },
         { source: 'makersuite', model: 'gemini-3.8-flash', tier: 'standard', input: 0.75, cachedInput: 0.075, output: 3.75, validUntil: '2026-12-31', sourceUrl: 'https://ai.google.dev/gemini-api/docs/pricing' },
         { source: 'makersuite', model: 'gemini-3.8-flash', tier: 'flex', input: 0.375, cachedInput: 0.0375, output: 1.875, validUntil: '2026-12-31', sourceUrl: 'https://ai.google.dev/gemini-api/docs/pricing' },
         { source: 'makersuite', model: 'gemini-3.8-flash', tier: 'priority', input: 1.35, cachedInput: 0.135, output: 6.75, validUntil: '2026-12-31', sourceUrl: 'https://ai.google.dev/gemini-api/docs/pricing' },

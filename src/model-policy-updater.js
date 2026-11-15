@@ -17,7 +17,7 @@ import { normalizePrice, priceKey } from './cost-model.js';
 
 export const MODEL_POLICY_SCHEMA_VERSION = 1;
 export const MODEL_POLICY_GITHUB_URL =
-    'https://raw.githubusercontent.com/mananekoha114/ST-Vertex-PayGo/main/data/model-support.json';
+    'https://raw.githubusercontent.com/Sanjs333/ST-CacheKit/main/data/model-support.json';
 export const MODEL_POLICY_CACHE_KEY = 'vertex-paygo.model-policy.v1';
 export const MODEL_POLICY_FETCH_TIMEOUT_MS = 5_000;
 export const MODEL_POLICY_REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1_000;
@@ -139,7 +139,15 @@ function parsePricing(pricing) {
             || rateFields.some(field => Object.hasOwn(entry, field) && typeof entry[field] !== 'number')) invalid();
         const rate = normalizePrice(entry);
         if (!rate) invalid();
-        if (Object.hasOwn(entry, 'validUntil') && (!isCalendarDate(entry.validUntil) || entry.validUntil < pricing.updatedAt)) invalid();
+        let afterExpiry;
+        if (Object.hasOwn(entry, 'afterExpiry')) {
+            if (!Object.hasOwn(entry, 'validUntil') || !isPlainObject(entry.afterExpiry)
+                || rateFields.some(field => Object.hasOwn(entry.afterExpiry, field) && typeof entry.afterExpiry[field] !== 'number')) invalid();
+            afterExpiry = normalizePrice(entry.afterExpiry);
+            if (!afterExpiry) invalid();
+        }
+        if (Object.hasOwn(entry, 'validUntil')
+            && (!isCalendarDate(entry.validUntil) || (entry.validUntil < pricing.updatedAt && !afterExpiry))) invalid();
         let url;
         try { url = new URL(entry.sourceUrl); } catch { invalid(); }
         if (url.protocol !== 'https:' || url.username || url.password || url.port
@@ -148,7 +156,8 @@ function parsePricing(pricing) {
         if (keys.has(key)) invalid();
         keys.add(key);
         return Object.freeze({ source: entry.source, model: entry.model, tier: entry.tier,
-            ...rate, ...(entry.validUntil ? { validUntil: entry.validUntil } : {}), sourceUrl: entry.sourceUrl });
+            ...rate, ...(entry.validUntil ? { validUntil: entry.validUntil } : {}),
+            ...(afterExpiry ? { afterExpiry: Object.freeze(afterExpiry) } : {}), sourceUrl: entry.sourceUrl });
     });
     return Object.freeze({ updatedAt: pricing.updatedAt, currency: 'USD', unit: 'per_million_tokens', entries: Object.freeze(entries) });
 }

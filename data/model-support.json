@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-11",
+  "updatedAt": "2026-11-15",
   "sources": {
     "flex": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/flex-paygo",
     "priority": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/priority-paygo",
@@ -35,6 +35,7 @@
     ]
   },
   "knownModels": [
+    "gemini-4-hydrogen",
     "gemini-4-carbon",
     "gemini-4-argon",
     "gemini-3.8-flash",
@@ -53,9 +54,10 @@
     "gemini-2.5-flash-lite"
   ],
   "aiStudio": {
-    "updatedAt": "2026-11-11",
+    "updatedAt": "2026-11-15",
     "tiers": {
       "flex": [
+        "gemini-4-hydrogen",
         "gemini-4-carbon",
         "gemini-4-argon",
         "gemini-3.8-flash",
@@ -72,6 +74,7 @@
       ]
     },
     "knownModels": [
+      "gemini-4-hydrogen",
       "gemini-4-carbon",
       "gemini-4-argon",
       "gemini-3.8-flash",
@@ -91,19 +94,51 @@
     ]
   },
   "pricing": {
-    "updatedAt": "2026-11-11",
+    "updatedAt": "2026-11-15",
     "currency": "USD",
     "unit": "per_million_tokens",
     "entries": [
       {
         "source": "vertexai",
+        "model": "gemini-4-hydrogen",
+        "tier": "standard",
+        "input": 1.5,
+        "cachedInput": 0.075,
+        "output": 7.5,
+        "sourceUrl": "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing"
+      },
+      {
+        "source": "makersuite",
+        "model": "gemini-4-hydrogen",
+        "tier": "standard",
+        "input": 1.5,
+        "cachedInput": 0.075,
+        "output": 7.5,
+        "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing"
+      },
+      {
+        "source": "makersuite",
+        "model": "gemini-4-hydrogen",
+        "tier": "flex",
+        "input": 0.75,
+        "cachedInput": 0.0375,
+        "output": 3.75,
+        "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing"
+      },
+      {
+        "source": "vertexai",
         "model": "gemini-4-carbon",
         "tier": "standard",
         "input": 2,
         "cachedInput": 0.1,
         "output": 10,
         "validUntil": "2026-11-30",
-        "sourceUrl": "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing"
+        "sourceUrl": "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing",
+        "afterExpiry": {
+          "input": 4,
+          "cachedInput": 0.2,
+          "output": 20
+        }
       },
       {
         "source": "makersuite",
@@ -113,7 +148,12 @@
         "cachedInput": 0.1,
         "output": 10,
         "validUntil": "2026-11-30",
-        "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing"
+        "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing",
+        "afterExpiry": {
+          "input": 4,
+          "cachedInput": 0.2,
+          "output": 20
+        }
       },
       {
         "source": "makersuite",
@@ -123,7 +163,12 @@
         "cachedInput": 0.05,
         "output": 5,
         "validUntil": "2026-11-30",
-        "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing"
+        "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing",
+        "afterExpiry": {
+          "input": 2,
+          "cachedInput": 0.1,
+          "output": 10
+        }
       },
       {
         "source": "vertexai",
@@ -132,7 +177,13 @@
         "input": 2,
         "cachedInput": 0.1,
         "output": 10,
-        "sourceUrl": "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing"
+        "sourceUrl": "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing",
+        "validUntil": "2026-11-30",
+        "afterExpiry": {
+          "input": 4,
+          "cachedInput": 0.2,
+          "output": 20
+        }
       },
       {
         "source": "vertexai",
@@ -141,7 +192,13 @@
         "input": 1,
         "cachedInput": 0.05,
         "output": 5,
-        "sourceUrl": "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing"
+        "sourceUrl": "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing",
+        "validUntil": "2026-11-30",
+        "afterExpiry": {
+          "input": 2,
+          "cachedInput": 0.1,
+          "output": 10
+        }
       },
       {
         "source": "vertexai",
@@ -427,7 +484,13 @@
         "input": 2,
         "cachedInput": 0.1,
         "output": 10,
-        "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing"
+        "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing",
+        "validUntil": "2026-11-30",
+        "afterExpiry": {
+          "input": 4,
+          "cachedInput": 0.2,
+          "output": 20
+        }
       },
       {
         "source": "makersuite",
@@ -436,7 +499,13 @@
         "input": 1,
         "cachedInput": 0.05,
         "output": 5,
-        "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing"
+        "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing",
+        "validUntil": "2026-11-30",
+        "afterExpiry": {
+          "input": 2,
+          "cachedInput": 0.1,
+          "output": 10
+        }
       },
       {
         "source": "makersuite",
