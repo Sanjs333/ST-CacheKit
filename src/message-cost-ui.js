@@ -5,6 +5,7 @@
  */
 
 import { formatMessageCostLabel, formatMessageMoney, summarizeMessageCost } from './message-cost-view.js';
+import { formatCacheHitRate } from './cost-model.js';
 import { createLocalizer, getTierLabel } from './i18n.js';
 import { bindExtensionTheme, subscribeThemeChanges } from './theme.js';
 import { isolateDialogEvents } from './panel-events.js';
@@ -95,7 +96,7 @@ function buildCard(documentRef, summary, onClose, localize) {
     const cache = node(documentRef, 'div', 'vertex-paygo-message-cost-cache');
     addMetric(documentRef, cache, localize(messageKey('cached')), summary.hasUsage ? formatTokens(summary.cachedTokens) : '—');
     addMetric(documentRef, cache, localize('vertex_paygo.costs.cache_hit_rate'),
-        summary.cacheHitRate == null ? '—' : `${(summary.cacheHitRate * 100).toFixed(1)}%`,
+        formatCacheHitRate(summary.cacheHitRate),
         localize('vertex_paygo.costs.cache_hit_rate_hint'));
     addMetric(documentRef, cache, localize(messageKey('uncached')), summary.hasUsage ? formatTokens(summary.uncachedTokens) : '—');
     card.append(cache);

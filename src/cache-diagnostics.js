@@ -3,6 +3,7 @@ import { mountExtensionSettings } from './extension-settings.js';
 import { createCacheDiagnosticsViewer } from './cache-diagnostics-view.js';
 import { bindExtensionTheme } from './theme.js';
 import { createExtensionDialog } from './dialog.js';
+import { buildCacheMissAnalysis, sameCacheScope } from './cache-miss-analysis.js';
 
 const count = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
 const hash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value) ? value : null;
@@ -14,7 +15,7 @@ function contentView(content) {
     if (!content || typeof content !== 'object') return null;
     const kinds = {};
     for (const kind of KINDS) if (count(content.kinds?.[kind]) !== null) kinds[kind] = content.kinds[kind];
-    return { role: ['user', 'model', 'system'].includes(content.role) ? content.role : 'unknown',
+    return { role: ['user', 'model', 'system', 'tool'].includes(content.role) ? content.role : 'unknown',
         partCount: count(content.partCount), textChars: count(content.textChars), textBytes: count(content.textBytes),
         kinds, thoughtParts: count(content.thoughtParts), signedParts: count(content.signedParts), fingerprint: hash(content.fingerprint) };
 }
@@ -31,10 +32,17 @@ export function requestPreviewView(preview) {
     for (const key of ['maxOutputTokens', 'temperature', 'topP', 'topK', 'candidateCount', 'seed']) {
         if (typeof preview.generation?.[key] === 'number' && Number.isFinite(preview.generation[key])) generation[key] = preview.generation[key];
     }
+    const systemInstruction = preview.systemInstruction == null ? null : contentView(preview.systemInstruction);
+    if (preview.systemInstruction != null && systemInstruction === null) {
+        return { status: 'unavailable', reason: 'INVALID_OR_UNSUPPORTED_JSON', bodyBytes: count(preview.bodyBytes) };
+    }
     return { status: 'available', bodyBytes: count(preview.bodyBytes),
+        captureKind: preview.captureKind === 'tauri-frontend' ? 'tauri-frontend' : 'google-wire',
+        cacheMode: ['implicit', 'explicit', 'unknown'].includes(preview.cacheMode) ? preview.cacheMode
+            : preview.hasExplicitCache === true ? 'explicit' : 'implicit',
         epoch: typeof preview.epoch === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(preview.epoch) ? preview.epoch : null,
         bodyFingerprint: hash(preview.bodyFingerprint), parametersFingerprint: hash(preview.parametersFingerprint),
-        systemInstruction: preview.systemInstruction == null ? null : contentView(preview.systemInstruction),
+        systemInstruction,
         contentCount: count(preview.contentCount), contents: preview.contents.slice(0, 64).map(contentView),
         omittedContents: count(preview.omittedContents), generation, toolCount: count(preview.toolCount),
         hasExplicitCache: preview.hasExplicitCache === true, hasContinuationToken: preview.hasContinuationToken === true,
@@ -45,10 +53,17 @@ export function cacheUsageView(record) {
     const promptTokens = count(record?.usage?.promptTokenCount);
     const cachedTokens = count(record?.usage?.cachedContentTokenCount);
     const valid = promptTokens !== null && cachedTokens !== null && cachedTokens <= promptTokens;
-    return { promptTokens, cachedTokens: valid ? cachedTokens : null,
-        cacheRate: valid && promptTokens > 0 ? cachedTokens / promptTokens : null,
+    const provenance = record?.usage?.cacheCountStatus;
+    const cacheField = provenance === 'omitted' || provenance === 'mixed' ? provenance
+        : provenance !== undefined && provenance !== 'reported' ? 'invalid'
+            : cachedTokens === null ? record?.usage?.cachedContentTokenCount == null ? 'missing' : 'invalid'
+                : !valid ? 'invalid' : record?.usageAccuracy === 'tauri-normalized' && cachedTokens === 0 ? 'normalized'
+                    : provenance === undefined && cachedTokens === 0 ? 'unverified' : 'reported';
+    const usable = valid && ['reported', 'unverified', 'normalized'].includes(cacheField);
+    return { promptTokens, cachedTokens: usable ? cachedTokens : null,
+        cacheRate: usable && promptTokens > 0 ? cachedTokens / promptTokens : null,
         outputTokens: count(record?.usage?.candidatesTokenCount), thinkingTokens: count(record?.usage?.thoughtsTokenCount),
-        cacheField: record?.usage?.cachedContentTokenCount == null ? 'missing' : valid ? 'reported' : 'invalid',
+        cacheField,
         partial: record?.status !== 'complete' };
 }
 
@@ -57,7 +72,13 @@ export function compareRequestPreviews(current, previous) {
     const left = current.preview, right = previous.preview;
     if (left.status !== 'available' || right.status !== 'available') return { status: 'unavailable' };
     if (!left.epoch || left.epoch !== right.epoch) return { status: 'different_epoch' };
+    if (left.captureKind !== right.captureKind) return { status: 'different_capture' };
     if (['model', 'source', 'region'].some(key => current[key] !== previous[key])) return { status: 'different_scope' };
+    const known = value => value.contentCount !== null && value.omittedContents !== null
+        && value.contentCount === value.contents.length + value.omittedContents
+        && (value.systemInstruction === null || !!value.systemInstruction?.fingerprint)
+        && value.contents.every(content => !!content?.fingerprint);
+    if (!known(left) || !known(right)) return { status: 'unavailable' };
     const same = (a, b) => a?.fingerprint && b?.fingerprint && a.role === b.role && a.fingerprint === b.fingerprint;
     const systemUnchanged = left.systemInstruction === null && right.systemInstruction === null
         || !!same(left.systemInstruction, right.systemInstruction);
@@ -70,8 +91,13 @@ export function compareRequestPreviews(current, previous) {
             commonBlocks++;
         }
     }
-    return { status: 'compared', systemUnchanged, commonBlocks, commonTextChars,
-        sameBody: !!left.bodyFingerprint && left.bodyFingerprint === right.bodyFingerprint,
+    const sameBody = !!left.bodyFingerprint && left.bodyFingerprint === right.bodyFingerprint;
+    return { status: 'compared', systemUnchanged, commonBlocks, commonTextChars, sameBody,
+        firstChangedBlock: systemUnchanged && commonBlocks < Math.min(left.contents.length, right.contents.length) ? commonBlocks + 1 : null,
+        prefixUnchanged: sameBody || systemUnchanged && right.omittedContents === 0 && commonBlocks === right.contents.length
+            && left.contentCount >= right.contentCount,
+        contentsReduced: left.contentCount < right.contentCount,
+        parametersComparable: !!left.parametersFingerprint && !!right.parametersFingerprint,
         sameParameters: !!left.parametersFingerprint && left.parametersFingerprint === right.parametersFingerprint,
         bounded: (left.omittedContents ?? 0) > 0 || (right.omittedContents ?? 0) > 0 };
 }
@@ -86,30 +112,38 @@ export function buildCacheDiagnostics(records) {
     const views = latest.map(record => ({
         id: label(record.id), createdAt: label(record.createdAt), model: label(record.model), source: label(record.source),
         tier: label(record.tier), region: label(record.region), status: STATUSES.includes(record.status) ? record.status : 'unknown',
+        errorCode: typeof record.errorCode === 'string' && /^[A-Z][A-Z0-9_]{0,95}$/u.test(record.errorCode) ? record.errorCode : '',
         usage: cacheUsageView(record), googleRequestCount: count(record.googleRequestCount),
         preview: requestPreviewView(record.googleRequests?.[0]),
         storedRequestCount: Array.isArray(record.googleRequests) ? Math.min(3, record.googleRequests.length) : 0,
     }));
-    return views.map((view, index) => ({ ...view, comparison: compareRequestPreviews(view, views[index + 1]) }));
+    return views.map((view, index) => {
+        const previous = views[index + 1] ?? null;
+        const reference = views.slice(index + 1).find(candidate => candidate.status === 'complete' && sameCacheScope(view, candidate)) ?? null;
+        return { ...view, comparison: compareRequestPreviews(view, previous),
+            diagnosis: buildCacheMissAnalysis(view, { previous, reference, comparison: compareRequestPreviews(view, reference) }) };
+    });
 }
 
 const comparisonText = value => {
     if (value.status === 'no_previous') return '暂无上一条记录。';
     if (value.status === 'different_epoch') return '指纹密钥不同或缺失，无法比较。';
     if (value.status === 'different_scope') return '模型、来源或区域不同，无法比较。';
+    if (value.status === 'different_capture') return '结构摘要的采集阶段不同，无法比较。';
     if (value.status !== 'compared') return '结构摘要不完整，无法比较。';
-    return `与上一条记录比较：系统指令${value.systemUnchanged ? '相同' : '不同'}；前 ${value.commonBlocks} 个完整消息块相同，共 ${value.commonTextChars} 个文本字符（含相同系统指令）；其他参数${value.sameParameters ? '相同' : '不同'}。${value.bounded ? '结构列表已截断，比较范围有限。' : ''}`;
+    return `与上一条记录比较：系统指令${value.systemUnchanged ? '相同' : '不同'}；前 ${value.commonBlocks} 个完整消息块相同，共 ${value.commonTextChars} 个文本字符（含相同系统指令）；其他参数${value.parametersComparable ? value.sameParameters ? '相同' : '不同' : '未知'}。${value.bounded ? '结构列表已截断，比较范围有限。' : ''}`;
 };
 
-export function createCacheDiagnosticsUi({ serverClient, getChatId, context, documentRef = globalThis.document }) {
+export function createCacheDiagnosticsUi({ serverClient, getChatId, context, documentRef = globalThis.document,
+    coverageNotice = '', coverageSummary = '' }) {
     const make = (tag, text = '') => { const node = documentRef.createElement(tag); node.textContent = text; return node; };
     const root = make('section'); root.id = 'vertex-paygo-cache-diagnostics'; root.className = 'vertex-paygo-settings vertex-paygo-log-settings';
     const actions = make('div'); actions.id = `${root.id}-actions`; actions.className = 'vertex-paygo-log-actions';
-    const title = make('h4', 'Google 请求与缓存用量'); title.className = 'vertex-paygo-action-label';
+    const title = make('h4', 'Google 请求与缓存诊断'); title.className = 'vertex-paygo-action-label';
     const tools = make('div'); tools.className = 'vertex-paygo-log-tools';
     const viewButton = make('button'); viewButton.type = 'button'; viewButton.id = `${root.id}-view`;
     viewButton.className = 'menu_button vertex-paygo-icon-button vertex-paygo-log-button';
-    viewButton.setAttribute('title', '查看 Google 请求与缓存用量'); viewButton.setAttribute('aria-label', '查看 Google 请求与缓存用量');
+    viewButton.setAttribute('title', '查看 Google 请求与缓存诊断'); viewButton.setAttribute('aria-label', '查看 Google 请求与缓存诊断');
     const icon = make('i'); icon.className = 'fa-solid fa-chart-simple'; icon.setAttribute('aria-hidden', 'true');
     viewButton.append(icon); tools.append(viewButton); actions.append(title, tools);
     const statusNode = make('small'); statusNode.className = 'vertex-paygo-status'; statusNode.setAttribute('aria-live', 'polite');
@@ -147,6 +181,7 @@ export function createCacheDiagnosticsUi({ serverClient, getChatId, context, doc
         if (session) { session.viewer.root.querySelector('select')?.focus?.(); return; }
         const current = { popup: null, dialog: null, disposers: [] };
         current.viewer = createCacheDiagnosticsViewer({ documentRef, onRefresh: () => void refresh(),
+            coverageNotice, coverageSummary,
             onSelect: value => { if (views.some(view => view.id === value)) { selected = value; followLatest = selected === views[0]?.id; } render(); },
             onClose: () => close(current) });
         session = current; render();

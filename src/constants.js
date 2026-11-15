@@ -9,11 +9,12 @@
 // Display-name changes must keep existing storage and protocol identifiers.
 export const EXTENSION_ID = 'vertex-paygo';
 export const EXTENSION_DISPLAY_NAME = '提示词缓存优化';
-export const CLIENT_VERSION = '1.0.0';
+export const CLIENT_VERSION = '1.1.0';
 export const CONFIG_VERSION = 1;
 export const PROTOCOL_VERSION = 2;
 export const REQUIRED_TRANSPORT = 'loopback-http';
 export const CLIENT_LOG_MEDIA_TYPE = 'application/vnd.st-vertex-paygo.client-log+json';
+export const MAX_USAGE_RECORDS_PER_CHAT = 100;
 
 export const VERTEX_SOURCE = 'vertexai';
 export const AI_STUDIO_SOURCE = 'makersuite';

@@ -43,6 +43,11 @@ function tokenCount(usage, name) {
     return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
 }
 
+export function formatCacheHitRate(value, unknown = '—') {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) return unknown;
+    return value > 0 && value < 0.001 ? '<0.1%' : `${(value * 100).toFixed(1)}%`;
+}
+
 /** Compute the prompt-token-weighted shared-cache hit rate for requests. */
 export function calculateCacheHitRate(records) {
     if (!Array.isArray(records) || records.length === 0) return null;
@@ -51,6 +56,7 @@ export function calculateCacheHitRate(records) {
     for (const record of records) {
         const usage = record?.usage;
         if (!record || typeof record !== 'object' || !usage || typeof usage !== 'object') return null;
+        if (usage.cacheCountStatus !== undefined && usage.cacheCountStatus !== 'reported') return null;
         const prompt = tokenCount(usage, 'promptTokenCount');
         if (prompt === undefined) return null;
         let cached;

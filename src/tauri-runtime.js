@@ -11,6 +11,7 @@ import { createTauriConnections } from './tauri-connections.js';
 import { installTauriTransport } from './tauri-transport.js';
 import { createTauriUi } from './tauri-ui.js';
 import { createTauriUsageClient } from './tauri-usage.js';
+import { createCacheDiagnosticsUi } from './cache-diagnostics.js';
 
 export function assertTauriCapabilities(context, platform) {
     const store = platform?.api?.extension?.store;
@@ -19,9 +20,9 @@ export function assertTauriCapabilities(context, platform) {
         || typeof context.eventSource?.on !== 'function' || !context.eventTypes?.CHAT_COMPLETION_SETTINGS_READY
         || typeof context.Popup?.show?.confirm !== 'function' || context.POPUP_RESULT?.AFFIRMATIVE === undefined
         || typeof platform?.api?.llmConnections?.save !== 'function'
-        || !['setJson', 'listKeys'].every(key => typeof store?.[key] === 'function')
+        || !['setJson', 'listKeys', 'deleteJson'].every(key => typeof store?.[key] === 'function')
         || (typeof store?.tryGetJson !== 'function' && typeof store?.getJson !== 'function')) {
-        const error = new Error('需要 TauriTavern 原生参数与扩展存储接口，已在 2.3.0 版本验证。');
+        const error = new Error('需要 TauriTavern 原生参数与扩展存储接口；当前按 2.4.x 接口适配。');
         error.code = 'TAURI_CAPABILITIES_UNAVAILABLE';
         throw error;
     }
@@ -71,6 +72,7 @@ export async function initTauriTavern({ target = globalThis, documentRef = targe
     let promptInspector;
     let frontendPromptInspector;
     let agentPromptCapture;
+    let cacheDiagnosticsUi;
     let agentSettingsListener;
     let agentModeEnabled = false, agentModeKnown = false, agentSettingsSerial = 0;
     let timer;
@@ -84,7 +86,7 @@ export async function initTauriTavern({ target = globalThis, documentRef = targe
         catch { /* Release the remaining components even if a host event hook failed. */ }
         try { if (transport) context.eventSource.removeListener?.(eventName, transport); }
         catch { console.warn('[提示词缓存优化] Could not remove the Tauri request listener.'); }
-        for (const component of [transport, frontendPromptInspector, agentPromptCapture, promptInspector, cacheTools, controller, messageCosts, messageCostUi, costUi, costs, usage]) {
+        for (const component of [transport, frontendPromptInspector, agentPromptCapture, promptInspector, cacheDiagnosticsUi, cacheTools, controller, messageCosts, messageCostUi, costUi, costs, usage]) {
             try { component?.destroy?.(); }
             catch { console.warn('[提示词缓存优化] Could not release a Tauri extension component.'); }
         }
@@ -128,7 +130,7 @@ export async function initTauriTavern({ target = globalThis, documentRef = targe
                 messageCostUi?.render();
             },
         });
-        usage = (factories.usage ?? createTauriUsageClient)({ store,
+        usage = (factories.usage ?? createTauriUsageClient)({ store, yaml, cryptoRef: target.crypto ?? globalThis.crypto,
             notifyWarning: () => notifyWarning(localize('vertex_paygo.costs.recording_unavailable')) });
         messageCostUi = (factories.messageCostUi ?? createMessageCostUi)({ getContext, getMessageCost,
             documentRef, getPrices: costs.getPrices, localize,
@@ -147,6 +149,14 @@ export async function initTauriTavern({ target = globalThis, documentRef = targe
             getCurrentPricingKey: controller.getPricingKey,
             coverageNotice: localize('vertex_paygo.tauri.cost_coverage'),
         });
+        try {
+            cacheDiagnosticsUi = (factories.cacheDiagnosticsUi ?? createCacheDiagnosticsUi)({ context,
+                serverClient: usage, getChatId: costs.getChatId, documentRef,
+                coverageSummary: 'TT 记录普通聊天与兼容前端的 Google 请求，原生 Agent 回合未计入。',
+                coverageNotice: 'TT 当前聊天中由插件采集的普通与兼容前端 Google 逻辑请求，不含原生 Agent 内部模型回合。结构摘要来自前端，宿主可能继续转换或发送多个子请求；未核验逐字节 Google 请求。仅保留长度、指纹和参数摘要，不含提示词正文。' });
+        } catch {
+            console.warn('[提示词缓存优化] Tauri cache diagnostics are unavailable.');
+        }
         transport = (factories.transport ?? installTauriTransport)({ context, target, yaml,
             stateProvider: controller.getState, usageClient: usage, messageCosts,
             getPromptInspector: () => frontendPromptInspector?.controller,
@@ -214,7 +224,7 @@ export async function initTauriTavern({ target = globalThis, documentRef = targe
         timer = target.setInterval(() => void refreshCatalog().catch(error =>
             console.warn('[提示词缓存优化] Model policy refresh failed.', error)), MODEL_POLICY_REFRESH_INTERVAL_MS);
         return { ...controller, destroy, usageClient: usage, cacheTools, promptInspector, frontendPromptInspector,
-            agentPromptCapture, mode: 'tauri',
+            agentPromptCapture, cacheDiagnosticsUi, mode: 'tauri',
             captureMessages(chat) { if (!destroyed) return cacheTools?.migration?.captureMessages?.(chat); } };
     } catch (error) { destroy(); throw error; }
 }

@@ -269,6 +269,7 @@ function metadataFor({ data, state, target, captureUsageContext, getUsagePrice, 
         source,
         model,
         tier: state.tier,
+        region: source === 'vertexai' && typeof data.vertexai_region === 'string' ? data.vertexai_region : '',
         paygoOnly: false,
         stream: Boolean(data?.stream),
         price: price ?? null,
@@ -333,10 +334,12 @@ function callObservation(usageClient, response, metadata, signal) {
             source: metadata.source,
             model: metadata.model,
             tier: metadata.tier,
+            region: metadata.region,
             paygoOnly: metadata.paygoOnly,
             stream: metadata.stream,
             price: metadata.price,
             startedAt: metadata.startedAt,
+            requestPreview: metadata.requestPreview,
         }, { signal });
         if (result && typeof result.then === 'function') {
             void result.catch(error => callFailure(usageClient, error, metadata));
@@ -702,7 +705,16 @@ export function installTauriTransport({
             signalAbort(signal);
             if (costToken) observeCost('started', costToken);
             dispatched = true;
-            const sending = originalFetch.call(this, input, { ...init, body: JSON.stringify(prepared) });
+            const body = JSON.stringify(prepared);
+            if (usageMetadata && typeof usageClient?.captureRequest === 'function') {
+                try {
+                    const requestPreview = Promise.resolve(usageClient.captureRequest(body)).catch(() =>
+                        ({ version: 1, status: 'unavailable', reason: 'FINGERPRINT_UNAVAILABLE' }));
+                    usageMetadata = { ...usageMetadata, requestPreview };
+                }
+                catch { /* Request summaries cannot affect generation. */ }
+            }
+            const sending = originalFetch.call(this, input, { ...init, body });
             void observePrompt(inspection, 'markDispatched');
             const response = await sending;
             void observePrompt(inspection, 'finishRequest', { responseOk: response.ok, httpStatus: response.status });

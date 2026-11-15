@@ -4,8 +4,8 @@
  * License, v. 2.0.
  */
 
-import { calculateCacheHitRate, summarizeUsage } from './cost-model.js';
-import { EXTENSION_DISPLAY_NAME } from './constants.js';
+import { calculateCacheHitRate, formatCacheHitRate, summarizeUsage } from './cost-model.js';
+import { EXTENSION_DISPLAY_NAME, MAX_USAGE_RECORDS_PER_CHAT } from './constants.js';
 import { createLocalizer } from './i18n.js';
 import { createPriceSettingsUi } from './price-settings-ui.js';
 import { bindExtensionTheme } from './theme.js';
@@ -37,7 +37,7 @@ function money(value) {
 }
 
 function cacheRate(value) {
-    return value == null ? '—' : `${(value * 100).toFixed(1)}%`;
+    return formatCacheHitRate(value);
 }
 
 function errorText(code) {
@@ -178,7 +178,7 @@ export function createCostUi({
                 }
                 if (!response?.ok) throw new Error(response?.error || '读取用量失败');
                 const records = (Array.isArray(response.records) ? response.records : [])
-                    .filter(record => record?.chatId === chatId);
+                    .filter(record => record?.chatId === chatId).slice(-MAX_USAGE_RECORDS_PER_CHAT);
                 priceSettings.updateKeyLists(records);
                 const result = summarizeUsage(records, getPrices?.() ?? {});
                 const latest = result.details.at(-1)?.estimate;
@@ -199,9 +199,9 @@ export function createCostUi({
                 for (const title of ['请求时间', '模型 / 层级', '状态', '输入', '缓存', localize('vertex_paygo.costs.cache_hit_rate'), '输出', '思考', '费用']) headRow.append(element(documentRef, 'th', '', title));
                 head.append(headRow);
                 const body = element(documentRef, 'tbody');
-                // Sum the entire ledger, but bound the number of live DOM rows.
-                if (result.details.length > 200) tableWrap.append(element(documentRef, 'p', '', '合计包含全部已读取请求，下表显示最近 200 条。'));
-                for (const { record, estimate } of result.details.slice(-200).reverse()) {
+                tableWrap.append(element(documentRef, 'p', 'vertex-paygo-cost-retention-note',
+                    `列表与合计仅统计当前对话最近 ${MAX_USAGE_RECORDS_PER_CHAT} 条请求。`));
+                for (const { record, estimate } of result.details.slice(-MAX_USAGE_RECORDS_PER_CHAT).reverse()) {
                     const row = element(documentRef, 'tr');
                     const count = name => {
                         const value = record.usage?.[name];

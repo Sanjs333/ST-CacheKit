@@ -1363,6 +1363,15 @@
 .vertex-paygo-cache-progress::-moz-progress-bar { background: var(--vertex-paygo-accent, var(--SmartThemeQuoteColor, #92bda8)); border-radius: 99px; }
 .vertex-paygo-cache-warning { margin: .7rem 0; padding: .6rem .75rem; border-left: 2px solid var(--vertex-paygo-accent, var(--SmartThemeQuoteColor, #92bda8)); background: color-mix(in srgb, currentColor 4%, transparent); font-size: .78rem; overflow-wrap: anywhere; }
 .vertex-paygo-cache-note { margin: .65rem 0; font-size: .78rem; opacity: .75; overflow-wrap: anywhere; }
+.vertex-paygo-cache-analysis { margin-top: 1rem; padding: .85rem; border: 1px solid var(--vertex-paygo-border, var(--SmartThemeBorderColor, #60616b)); border-radius: 8px; overflow-wrap: anywhere; }
+.vertex-paygo-cache-analysis > h4 { margin: 0 0 .45rem; font-size: .9rem; }
+.vertex-paygo-cache-analysis-summary { margin: 0; font-size: .83rem; }
+.vertex-paygo-cache-findings { list-style: none; margin: .7rem 0 0; padding: 0; }
+.vertex-paygo-cache-findings > li { margin: .65rem 0 0; padding-top: .65rem; border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
+.vertex-paygo-cache-finding-title { display: flex; align-items: baseline; gap: .45rem; font-size: .8rem; }
+.vertex-paygo-cache-confidence { flex: 0 0 auto; padding: .05rem .3rem; border: 1px solid color-mix(in srgb, currentColor 25%, transparent); border-radius: 4px; font-size: .66rem; font-weight: normal; }
+.vertex-paygo-cache-findings p { margin: .35rem 0 0; font-size: .78rem; }
+.vertex-paygo-cache-advice { opacity: .75; }
 .vertex-paygo-cache-content > .vertex-paygo-cache-detail { margin-top: .8rem; border-top: 1px dashed color-mix(in srgb, var(--vertex-paygo-border, var(--SmartThemeBorderColor, #60616b)) 55%, transparent); padding-top: .8rem; }
 .vertex-paygo-cache-detail > summary { font-size: .83rem; }
 .vertex-paygo-cache-detail > summary::marker { content: ''; }
