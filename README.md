@@ -40,10 +40,6 @@ cd SillyTavern && ((Get-Content config.yaml -Encoding utf8) -replace 'enableServ
 
 缓存命中以 Google 返回用量为准，费用为估算。Flex 需要支持的模型与账号，Vertex Flex 需要 `global` 区域。
 
-## 开发验证
-
-在扩展目录运行 `npm test`，验证提示词记录的容量与内容、用量查询和新旧后端兼容。启动酒馆后访问 `/scripts/extensions/third-party/ST-CacheKit/tests/theme-browser.html`，运行独立主题回归场景，检查隐藏抽屉、重复样式写入、动态控件及长聊天更新。
-
 修改配套后端后需重启酒馆；修改前端后需刷新页面。
 
 基于 [Mana Nekoha 的 ST-Vertex-PayGo](https://github.com/mananekoha114/ST-Vertex-PayGo) 修改，采用 [MPL-2.0](LICENSE)。

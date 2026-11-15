@@ -8,6 +8,7 @@
 
 import { EXTENSION_DISPLAY_NAME, PROTOCOL_VERSION, REQUIRED_TRANSPORT } from './constants.js';
 import { MODEL_POLICY_SNAPSHOT } from './model-policy.js';
+import { localizeGoogleUpstreamError } from './google-errors.js';
 
 export const MESSAGES = Object.freeze({
     "vertex_paygo.logs.preview.copy_record": "Copy this log entry",
@@ -138,6 +139,28 @@ export const MESSAGES = Object.freeze({
     "vertex_paygo.gemini4.budget_exhausted": "Gemini 4 exhausted its output budget before returning text. Thinking tokens count toward Max Response Length; increase it or lower Reasoning Effort.",
     'vertex_paygo.gemini4.no_output': 'Gemini 4 returned no reply text (reason: {reason}).',
     'vertex_paygo.gemini4.upstream_error': 'Google rejected the Gemini 4 request (HTTP {status}): {message}',
+    'vertex_paygo.google_error.summary': 'Google request failed (HTTP {status}): {diagnosis} Upstream details: {details}',
+    'vertex_paygo.google_error.details_missing': 'The upstream returned no readable error details; the exact cause is unavailable.',
+    'vertex_paygo.google_error.api_disabled': 'The required Google API is disabled for this project. Enable it in the project associated with this credential.',
+    'vertex_paygo.google_error.billing_disabled': 'Billing is disabled or inactive for this project. Check its linked billing account.',
+    'vertex_paygo.google_error.key_invalid': 'The API key is invalid or expired. Check the selected credential.',
+    'vertex_paygo.google_error.key_restricted': 'The API key restrictions blocked this request. Check its allowed APIs, IP addresses and applications.',
+    'vertex_paygo.google_error.iam_denied': 'This credential lacks the required IAM permission. Check the project and the account roles.',
+    'vertex_paygo.google_error.permission_denied': 'Access was denied. Check the account permissions, model access and API key restrictions.',
+    'vertex_paygo.google_error.unauthenticated': 'Authentication failed. Check the selected credential and refresh expired OAuth credentials.',
+    'vertex_paygo.google_error.resource_missing': 'The requested resource was not found. Check the model, project, region and access permissions.',
+    'vertex_paygo.google_error.resource_exhausted': 'The service reported exhausted quota or capacity. Check quota and retry later.',
+    'vertex_paygo.google_error.invalid_request': 'A request parameter was rejected. See the upstream details to identify it.',
+    'vertex_paygo.google_error.unavailable': 'The upstream service is temporarily unavailable. Retry later.',
+    'vertex_paygo.google_error.upstream_failed': 'The upstream returned a server error. Retry later; check the network or proxy if it persists.',
+    'vertex_paygo.google_error.unknown': 'The upstream rejected the request. See its error details.',
+    'vertex_paygo.logs.event.request_failed': 'Model request failed',
+    'vertex_paygo.logs.event.request_completed': 'Model request completed',
+    'vertex_paygo.logs.event.upstream_response': 'Upstream response received',
+    'vertex_paygo.logs.field.upstreamStatus': 'Upstream HTTP status',
+    'vertex_paygo.logs.field.googleStatus': 'Google error status',
+    'vertex_paygo.logs.field.googleReason': 'Google error reason',
+    'vertex_paygo.logs.field.upstreamMessage': 'Upstream error message',
     'vertex_paygo.settings.tab.general': 'General',
     'vertex_paygo.settings.tab.pricing': 'Pricing',
     "vertex_paygo.settings.tab.logs": "Logs",
@@ -557,11 +580,9 @@ export function localizePluginErrorMessage(localize, error,
         const networkKey = 'vertex_paygo.network_error.' + details.networkCode.toLowerCase();
         if (Object.hasOwn(MESSAGES, networkKey)) return localize(networkKey, { code: details.networkCode });
     }
-    if (error.code === 'GEMINI4_UPSTREAM_HTTP_ERROR' && Number.isInteger(details.upstreamStatus)
-        && (details.upstreamMessage || details.googleStatus)) {
-        return localize('vertex_paygo.gemini4.upstream_error', {
-            status: details.upstreamStatus, message: details.upstreamMessage || details.googleStatus,
-        });
+    if (error.code === 'GEMINI4_UPSTREAM_HTTP_ERROR') {
+        const message = localizeGoogleUpstreamError(localize, details, error.status);
+        if (message) return message;
     }
     if (error.code === 'NATIVE_GEMINI_EMPTY_RESPONSE') {
         return localize('vertex_paygo.gemini4.no_output', { reason: details.reason ?? 'UNKNOWN' });

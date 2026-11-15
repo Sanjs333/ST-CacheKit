@@ -1141,6 +1141,7 @@
 
 .vertex-paygo-log-caption { display: flex; flex-direction: column; min-width: 0; }
 .vertex-paygo-log-event { overflow-wrap: anywhere; }
+.vertex-paygo-log-error { overflow-wrap: anywhere; line-height: 1.5; }
 .vertex-paygo-log-code,
 .vertex-paygo-log-excerpt { opacity: 0.65; font-size: 0.78rem; overflow-wrap: anywhere; }
 .vertex-paygo-log-excerpt { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

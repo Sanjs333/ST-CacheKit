@@ -1,4 +1,5 @@
 /* Local log presentation; SPDX-License-Identifier: MPL-2.0 */
+import { localizeGoogleUpstreamError } from './google-errors.js';
 export const MAX_LOG_PREVIEW_RECORDS = 10_000;
 export const MAX_LOG_RECORD_CHARS = 16 * 1024;
 export const LOG_PREVIEW_PAGE_SIZE = 100;
@@ -15,6 +16,7 @@ export const LOG_EVENT_LABELS = Object.freeze({
     prepare_client_disconnected: 'disconnected', usage_ledger_create_failed: 'ledger_create_failed',
     usage_ledger_update_failed: 'ledger_update_failed', request_preview_capture_failed: 'preview_failed',
     proxy_request_received: 'request_received', proxy_forward_started: 'forwarding',
+    proxy_failed: 'request_failed', proxy_completed: 'request_completed', proxy_upstream_response: 'upstream_response',
     log_capacity_reached: 'log_full', client_log_capacity_reached: 'client_log_full',
     'extension.init_started': 'client_starting', 'extension.init_ready': 'client_ready',
     'extension.init_failed': 'client_failed', 'policy.refresh_started': 'policy_refresh',
@@ -29,6 +31,15 @@ export function runtimeLogEventLabel(record, localize) {
     if (record.kind !== 'event') return localize('vertex_paygo.logs.preview.raw_entry');
     const name = Object.hasOwn(LOG_EVENT_LABELS, record.event) ? LOG_EVENT_LABELS[record.event] : null;
     return name ? localize(`vertex_paygo.logs.event.${name}`) : record.event;
+}
+
+export function runtimeLogErrorMessage(record, localize) {
+    if (record.kind !== 'event' || record.source !== 'server') return '';
+    const context = record.context;
+    const googleFailure = context?.errorCode === 'GEMINI4_UPSTREAM_HTTP_ERROR'
+        || (record.event === 'proxy_completed' && ['vertexai', 'makersuite'].includes(context?.provider)
+            && Number.isSafeInteger(context?.statusCode) && context.statusCode >= 400 && context.statusCode <= 599);
+    return googleFailure ? localizeGoogleUpstreamError(localize, context, context?.statusCode) ?? '' : '';
 }
 
 function parseLine(raw, lineNumber) {
@@ -75,7 +86,8 @@ export function filterRuntimeLogRecords(records, { level = 'all', query = '' } =
     const search = String(query).trim().slice(0, 200).toLowerCase();
     return records.filter(record => (level === 'all' || record.level === level)
         && (!search || record.raw.toLowerCase().includes(search)
-            || runtimeLogEventLabel(record, localize).toLowerCase().includes(search)));
+            || runtimeLogEventLabel(record, localize).toLowerCase().includes(search)
+            || runtimeLogErrorMessage(record, localize).toLowerCase().includes(search)));
 }
 
 export function runtimeLogTime(timestamp, { locale, getFormatters } = {}) {

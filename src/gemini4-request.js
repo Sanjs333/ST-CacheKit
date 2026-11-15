@@ -36,9 +36,6 @@ export async function enrichGemini4ModelList(response) {
 const ERROR_KEYS = {
     GEMINI4_OUTPUT_BUDGET_EXHAUSTED: () => ['vertex_paygo.gemini4.budget_exhausted', {}],
     NATIVE_GEMINI_EMPTY_RESPONSE: details => ['vertex_paygo.gemini4.no_output', { reason: details.reason ?? 'UNKNOWN' }],
-    GEMINI4_UPSTREAM_HTTP_ERROR: details => (details.upstreamMessage || details.googleStatus) && Number.isInteger(details.upstreamStatus)
-        ? ['vertex_paygo.gemini4.upstream_error', { status: details.upstreamStatus, message: details.upstreamMessage || details.googleStatus }]
-        : null,
 };
 
 function localizeError(error, localize) {

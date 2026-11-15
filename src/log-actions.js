@@ -7,7 +7,7 @@
  */
 
 import { createLocalizer } from './i18n.js';
-import { filterRuntimeLogRecords, LOG_PREVIEW_PAGE_SIZE, parseRuntimeLog, runtimeLogEventLabel, runtimeLogTime } from './log-preview.js';
+import { filterRuntimeLogRecords, LOG_PREVIEW_PAGE_SIZE, parseRuntimeLog, runtimeLogEventLabel, runtimeLogErrorMessage, runtimeLogTime } from './log-preview.js';
 import { bindExtensionTheme } from './theme.js';
 import { createExtensionDialog } from './dialog.js';
 
@@ -15,7 +15,8 @@ const viewers = new WeakMap();
 
 const popupChrome = new WeakMap();
 const CONTEXT_FIELDS = new Set(['errorCode', 'statusCode', 'durationMs', 'model', 'provider', 'tier', 'region',
-    'phase', 'requestId', 'clientSessionId', 'clientVersion', 'protocolVersion', 'stream', 'paygoOnly', 'serverStatus']);
+    'phase', 'requestId', 'clientSessionId', 'clientVersion', 'protocolVersion', 'stream', 'paygoOnly', 'serverStatus',
+    'upstreamStatus', 'googleStatus', 'googleReason', 'upstreamMessage']);
 
 function requireDocument(documentRef) {
     if (!documentRef || typeof documentRef.createElement !== 'function') throw new TypeError('当前环境缺少页面文档接口。');
@@ -139,6 +140,7 @@ export function createLogViewerContent(text, {
         summary.append(make('span', 'vertex-paygo-log-source', sourceLabel));
         const caption = make('span', 'vertex-paygo-log-caption');
         const eventLabel = runtimeLogEventLabel(record, localize);
+        const errorMessage = runtimeLogErrorMessage(record, localize);
         caption.append(make('span', 'vertex-paygo-log-event', eventLabel, { title: eventLabel }));
         const errorCode = record.context?.errorCode;
         if (typeof errorCode === 'string' || typeof errorCode === 'number') {
@@ -146,6 +148,7 @@ export function createLogViewerContent(text, {
         } else if (record.kind === 'raw') {
             caption.append(make('span', 'vertex-paygo-log-excerpt', record.raw.slice(0, 160).replace(/\s+/gu, ' ') + (record.raw.length > 160 ? '…' : '')));
         }
+        if (errorMessage) caption.append(make('span', 'vertex-paygo-log-excerpt', errorMessage, { title: errorMessage }));
         summary.append(caption);
         const body = make('div', 'vertex-paygo-log-entry-body');
         row.append(summary, body);
@@ -155,6 +158,7 @@ export function createLogViewerContent(text, {
             loaded = true;
             if (record.kind === 'event') {
                 body.append(make('p', 'vertex-paygo-log-entry-name', eventLabel));
+                if (errorMessage) body.append(make('p', 'vertex-paygo-log-error', errorMessage));
                 const details = make('dl', 'vertex-paygo-log-fields');
                 const pair = (label, value) => details.append(make('dt', '', label), make('dd', '', value));
                 pair(key('preview.timestamp'), `${time.full} · ${record.timestamp}`);
