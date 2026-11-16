@@ -4,7 +4,7 @@
  * License, v. 2.0.
  */
 
-import { cacheTokenCount, calculateCacheHitRate, estimateRecord, priceKey } from './cost-model.js';
+import { cacheTokenCount, calculateCacheHitRate, estimateRecord, resolvePrice } from './cost-model.js';
 import { createLocalizer } from './i18n.js';
 
 function count(value) {
@@ -110,7 +110,7 @@ export function summarizeMessageCost(snapshot, prices = {}) {
         }
         if (record.model) models.add(String(record.model));
         if (record.tier) tiers.add(String(record.tier));
-        const estimate = estimateRecord(record, prices?.[priceKey(record)]);
+        const estimate = estimateRecord(record, resolvePrice(prices, record));
         if (estimate.reason && !(pending && estimate.reason === 'usage_missing')) reasons.add(estimate.reason);
         for (const reason of estimate.reasons ?? []) reasons.add(reason);
         if (record.usageAccuracy === 'tauri-normalized') reasons.add('tauri_normalized');

@@ -218,7 +218,8 @@ export function createTauriUi({ getContext, connections, yaml, documentRef = glo
         getState: currentState,
         getPricingKey() {
             const item = selected();
-            return { source: item?.source, model: item?.model, tier: item?.state?.tier ?? 'standard' };
+            return { source: item?.source, model: item?.model, tier: item?.state?.tier ?? 'standard',
+                region: item?.source === VERTEX_SOURCE ? (item.region || 'us-central1') : '' };
         },
         onModelPolicyChanged: reload,
         destroy() { destroyed = true; placementControl.destroy(); for (const dispose of disposers) dispose(); unmountSettings(); },

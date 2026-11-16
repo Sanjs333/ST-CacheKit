@@ -2,7 +2,8 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. https://mozilla.org/MPL/2.0/ */
 
-import { normalizePrice, priceKey } from './cost-model.js';
+import { normalizePrice, priceKey, pricingRegion } from './cost-model.js';
+import { regionalCatalogPrice, regionalPriceMultiplier } from './regional-pricing.js';
 import { getActivePricing } from './model-policy.js';
 import { normalizeMessageCostPlacement, normalizeMessageCostRecentCount } from './message-cost-settings.js';
 
@@ -94,20 +95,51 @@ export function createCostContext({ getContext, idFactory = createConversationId
     }
 
     function getPrices() {
-        const prices = Object.fromEntries(catalogPrices().entries.map(entry => [priceKey(entry), normalizePrice(entry)]));
+        const prices = {};
+        for (const entry of catalogPrices().entries) {
+            const base = normalizePrice(entry);
+            prices[priceKey(entry)] = base;
+            if (entry.source === 'vertexai') {
+                prices[priceKey({ ...entry, region: 'global' })] = base;
+                prices[priceKey({ ...entry, region: 'non-global' })] = regionalCatalogPrice(entry, { ...entry, region: 'non-global' });
+            }
+        }
         for (const [key, value] of Object.entries(settings().prices)) {
             const rate = normalizePrice(value);
-            if (rate) prices[key] = rate;
+            if (!rate) continue;
+            prices[key] = rate;
+            // Existing manual rates have no region and may already include a
+            // surcharge. Keep them as final prices instead of multiplying again.
+            let parts;
+            try { parts = JSON.parse(key); } catch { continue; }
+            if (Array.isArray(parts) && parts.length === 3 && parts[0] === 'vertexai') {
+                for (const region of ['global', 'non-global']) {
+                    prices[priceKey({ source: parts[0], model: parts[1], tier: parts[2], region })] = rate;
+                }
+            }
+        }
+        // Explicit region prices win regardless of insertion order relative to
+        // legacy model-wide manual settings.
+        for (const [key, value] of Object.entries(settings().prices)) {
+            let parts;
+            try { parts = JSON.parse(key); } catch { continue; }
+            const rate = normalizePrice(value);
+            if (rate && Array.isArray(parts) && parts.length === 4) prices[key] = rate;
         }
         return prices;
     }
 
     function getPriceInfo(key) {
-        if (normalizePrice(settings().prices[priceKey(key)])) return { source: 'manual' };
+        const region = pricingRegion(key);
+        const manual = normalizePrice(settings().prices[priceKey(key)])
+            ?? normalizePrice(settings().prices[priceKey({ ...key, region: '' })]);
+        if (manual) return { source: 'manual', price: manual, region, regionMultiplier: 1 };
         const { catalog, entries } = catalogPrices();
-        const entry = entries.find(entry => priceKey(entry) === priceKey(key));
-        return entry ? { source: 'catalog', updatedAt: catalog.updatedAt,
-            validUntil: entry.validUntil, sourceUrl: entry.sourceUrl } : { source: 'missing', updatedAt: catalog.updatedAt };
+        const entry = entries.find(entry => priceKey(entry) === priceKey({ ...key, region: '' }));
+        return entry ? { source: 'catalog', price: regionalCatalogPrice(entry, key), region,
+            regionMultiplier: regionalPriceMultiplier(key), updatedAt: catalog.updatedAt,
+            validUntil: entry.validUntil, sourceUrl: entry.sourceUrl }
+            : { source: 'missing', price: null, region, regionMultiplier: 1, updatedAt: catalog.updatedAt };
     }
     function setPrices(prices) {
         const validated = {};
@@ -128,13 +160,13 @@ export function createCostContext({ getContext, idFactory = createConversationId
     function resetPrice(key) {
         const prices = { ...settings().prices };
         delete prices[priceKey(key)];
+        delete prices[priceKey({ ...key, region: '' })];
         setPrices(prices);
     }
 
     function getUsagePrice(data, state) {
-        return normalizePrice(getPrices()[priceKey({
-            source: data.chat_completion_source, model: data.model, tier: state.tier,
-        })]);
+        return getPriceInfo({ source: data.chat_completion_source, model: data.model, tier: state.tier,
+            region: data.chat_completion_source === 'vertexai' ? (data.vertexai_region || 'us-central1') : '' }).price;
     }
 
     function renamed({ avatarId, groupId, oldFileName, newFileName } = {}) {

@@ -271,6 +271,8 @@ export async function init() {
                     source: current.chatCompletionSettings?.chat_completion_source,
                     model: current.getChatCompletionModel?.(),
                     tier: controller.getState().tier,
+                    region: current.chatCompletionSettings?.chat_completion_source === 'vertexai'
+                        ? (current.chatCompletionSettings.vertexai_region || 'us-central1') : '',
                 };
             },
         });

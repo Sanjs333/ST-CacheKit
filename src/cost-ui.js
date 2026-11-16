@@ -132,7 +132,9 @@ export function createCostUi({
     const unmountSettings = mountExtensionSettings(priceSettings.root, { documentRef, tab: 'pricing',
         label: localize('vertex_paygo.settings.tab.pricing'), onShow: priceSettings.syncCurrentKey });
 
-    const pricingEvents = [...new Set(['SETTINGS_UPDATED', 'SETTINGS_LOADED', 'CHATCOMPLETION_SOURCE_CHANGED']
+    const pricingEvents = [...new Set(['SETTINGS_UPDATED', 'SETTINGS_LOADED', 'CHATCOMPLETION_SOURCE_CHANGED',
+        'CHATCOMPLETION_MODEL_CHANGED', 'OAI_PRESET_CHANGED_AFTER', 'CONNECTION_PROFILE_LOADED',
+        'MODEL_TARGET_LOADED', 'MODEL_TARGET_UPDATED']
         .map(name => context.eventTypes?.[name]).filter(Boolean))];
     const onPricingConnectionChanged = () => { if (!destroyed) priceSettings.syncIfConnectionChanged(); };
     for (const event of pricingEvents) context.eventSource?.on?.(event, onPricingConnectionChanged);

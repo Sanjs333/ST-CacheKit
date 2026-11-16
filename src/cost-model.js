@@ -16,8 +16,24 @@ function finiteNonNegative(value) {
     return Number.isFinite(number) && number >= 0 ? number : undefined;
 }
 
-export function priceKey({ source, model, tier } = {}) {
-    return JSON.stringify([String(source ?? ''), String(model ?? ''), String(tier ?? '')]);
+export function pricingRegion({ source, region } = {}) {
+    return source === 'vertexai' ? String(region ?? '').trim().toLowerCase() : '';
+}
+
+export function priceKey(key = {}) {
+    const parts = [String(key.source ?? ''), String(key.model ?? ''), String(key.tier ?? '')];
+    const region = pricingRegion(key);
+    if (region) parts.push(region);
+    return JSON.stringify(parts);
+}
+
+// Maps contain final rates. The non-global bucket covers catalog prices for
+// arbitrary Vertex regions; exact regional overrides take precedence.
+export function resolvePrice(prices, key = {}) {
+    const region = pricingRegion(key);
+    return prices?.[priceKey(key)]
+        ?? (region ? prices?.[priceKey({ ...key, region: region === 'global' ? 'global' : 'non-global' })] : undefined)
+        ?? prices?.[priceKey({ ...key, region: '' })];
 }
 
 export function normalizePrice(price) {
@@ -203,7 +219,7 @@ export function summarizeUsage(records, prices = {}) {
     let incompleteCount = 0;
     let estimatedCount = 0;
     for (const record of unique.values()) {
-        const fallback = prices?.[priceKey(record)];
+        const fallback = resolvePrice(prices, record);
         const estimate = estimateRecord(record, fallback);
         details.push({ record, estimate });
         if (estimate.amount !== null) amount += estimate.amount;

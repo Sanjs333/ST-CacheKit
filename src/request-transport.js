@@ -254,6 +254,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
             }
             if (costToken) observe('prepared', costToken, prepared?.usageId, {
                 chatId: usageChatId, model: data.model, source: data.chat_completion_source,
+                region: data.chat_completion_source === 'vertexai' ? (data.vertexai_region || 'us-central1') : '',
                 tier: state.tier, stream: Boolean(data.stream), price: requestUsage.get(data).usagePrice,
             });
         } catch (error) {

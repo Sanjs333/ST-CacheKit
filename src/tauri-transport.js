@@ -17,6 +17,7 @@ import { sanitizeChat } from './prompt-migration.js';
 import { installTauriAgentTransport } from './tauri-agent-transport.js';
 import { applySystemPromptPreference } from './system-prompt-settings.js';
 import { applyTauriAgentSystemPromptPreference } from './tauri-system-prompt.js';
+import { pricingRegion } from './cost-model.js';
 import {
     applyTauriParameters,
     hasExplicitTauriState,
@@ -695,9 +696,10 @@ export function installTauriTransport({
                 && requestMetadata.source === sourceOf(prepared)
                 && requestMetadata.model === modelOf(prepared)
                 && requestMetadata.tier === validationState.tier
+                && pricingRegion(requestMetadata) === pricingRegion({ source, region: prepared.vertexai_region ?? '' })
                 && Object.hasOwn(requestMetadata, 'price');
             // The request-start price is a snapshot.  Keep it when host work
-            // leaves source/model/tier unchanged; recompute only when the
+            // leaves source/model/tier/region unchanged; recompute only when the
             // final payload actually changed the pricing identity.
             const finalPrice = samePricingIdentity
                 ? requestMetadata.price
@@ -725,6 +727,7 @@ export function installTauriTransport({
             if (costToken) observeCost('prepared', costToken, usageMetadata?.id, {
                 chatId: usageMetadata?.chatId,
                 model: modelOf(prepared), source: sourceOf(prepared),
+                region: usageMetadata?.region,
                 tier: validationState.tier, stream: Boolean(prepared.stream),
                 price: usageMetadata?.price,
             });

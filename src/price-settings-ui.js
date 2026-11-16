@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Mana Nekoha
  * This Source Code Form is subject to the Mozilla Public License, v. 2.0. */
 
-import { normalizePrice, priceKey } from './cost-model.js';
+import { normalizePrice, resolvePrice } from './cost-model.js';
 import { isGoogleSource } from './constants.js';
 import { getModelTierOptions, replaceTierOptions } from './tier-options.js';
 import { createLocalizer } from './i18n.js';
@@ -21,7 +21,9 @@ function choiceLabel(name, value, localize) {
 
 function readKey(getCurrentPricingKey) {
     const key = getCurrentPricingKey?.() ?? {};
-    return Object.fromEntries(['source', 'model', 'tier'].map(name => [name, String(key[name] ?? '').trim()]));
+    const selected = Object.fromEntries(['source', 'model', 'tier'].map(name => [name, String(key[name] ?? '').trim()]));
+    selected.region = selected.source === 'vertexai' ? String(key.region ?? '').trim().toLowerCase() || 'global' : '';
+    return selected;
 }
 
 export function createPriceSettingsUi({ documentRef = globalThis.document, context,
@@ -37,7 +39,7 @@ export function createPriceSettingsUi({ documentRef = globalThis.document, conte
     pricing.append(element(documentRef, 'h4', 'vertex-paygo-group-title', t('title')), note);
     const form = element(documentRef, 'form', 'vertex-paygo-cost-price-form');
     const priceMeta = element(documentRef, 'p', 'vertex-paygo-cost-price-meta');
-    const keyFields = { source: t('source'), model: t('model'), tier: t('tier') };
+    const keyFields = { source: t('source'), model: t('model'), region: t('region'), tier: t('tier') };
     const priceFields = {
         input: t('input'), cachedInput: t('cached_input'), output: t('output'),
         longContextThreshold: t('long_threshold'), longInput: t('long_input'),
@@ -54,7 +56,7 @@ export function createPriceSettingsUi({ documentRef = globalThis.document, conte
         label.title = name === 'tier'
             ? t('tier_hint') : t('connection_hint');
         const input = element(documentRef, name === 'tier' ? 'select' : 'span',
-            name === 'tier' ? 'text_pole' : 'vertex-paygo-cost-' + name + '-value');
+            name === 'tier' ? 'text_pole' : 'vertex-paygo-cost-' + (name === 'region' ? 'model' : name) + '-value');
         if (name !== 'tier') {
             input.setAttribute('data-pricing-' + name, name === 'source' ? currentKey.source : '');
             input.setAttribute('contenteditable', 'false');
@@ -106,7 +108,7 @@ export function createPriceSettingsUi({ documentRef = globalThis.document, conte
         // Keep the old hidden tier key for non-Google sources: no silent migration
         // or deletion of previously saved manual prices in this UI-only change.
         return { source: currentKey.source, model: currentKey.model,
-            tier: nativeSource() ? inputs.tier.value.trim() : currentKey.tier };
+            tier: nativeSource() ? inputs.tier.value.trim() : currentKey.tier, region: currentKey.region };
     }
     // Kept for the cost-window integration; records/catalog entries no longer
     // populate an editable model/source picker or replace user-edited rates.
@@ -127,6 +129,7 @@ export function createPriceSettingsUi({ documentRef = globalThis.document, conte
             tierFixed.textContent = choiceLabel('tier', choices[0]?.tier ?? 'standard', localize);
         }
         keyRows.tier.hidden = !nativeSource();
+        keyRows.region.hidden = currentKey.source !== 'vertexai';
         inputs.tier.disabled = !nativeSource();
         if (!currentKey.source) {
             note.textContent = t('note_unconnected');
@@ -144,12 +147,17 @@ export function createPriceSettingsUi({ documentRef = globalThis.document, conte
         catalogRefresh.disabled = !nativeSource() || typeof refreshCatalog !== 'function';
         save.disabled = typeof setPrice !== 'function' || !currentKey.source || !currentKey.model;
     }
-    function renderPriceMeta() {
-        const info = getPriceInfo?.(selectedKeyObject()) ?? { source: 'missing' };
+    function renderPriceMeta(priceInfo) {
+        const info = priceInfo ?? getPriceInfo?.(selectedKeyObject()) ?? { source: 'missing' };
         const labels = nativeSource()
             ? { manual: t('manual'), catalog: t('catalog'), missing: t('missing') }
             : { manual: t('manual'), catalog: t('reference'), missing: t('missing') };
         const parts = [labels[info.source] ?? labels.missing];
+        if (currentKey.source === 'vertexai' && info.source === 'catalog'
+            && typeof info.regionMultiplier === 'number' && Number.isFinite(info.regionMultiplier)
+            && info.regionMultiplier > 0 && info.regionMultiplier !== 1) {
+            parts.push(t('region_adjustment', { multiplier: Number(info.regionMultiplier.toFixed(6)) }));
+        }
         if (nativeSource() && info.updatedAt) parts.push(t(info.source === 'missing' ? 'catalog_updated' : 'verified', { date: info.updatedAt }));
         if (nativeSource() && info.validUntil) parts.push(t('valid_until', { date: info.validUntil }));
         priceMeta.replaceChildren(element(documentRef, 'span', '', parts.join(' · ')));
@@ -162,9 +170,14 @@ export function createPriceSettingsUi({ documentRef = globalThis.document, conte
         }
     }
     function loadSelectedPrice() {
-        const selected = normalizePrice((getPrices?.() ?? {})[priceKey(selectedKeyObject())]) ?? {};
+        const key = selectedKeyObject();
+        const info = getPriceInfo?.(key) ?? { source: 'missing' };
+        // Resolved prices already include the connection's regional adjustment.
+        // A manual price is the final rate and must never be multiplied here.
+        const selected = normalizePrice(Object.hasOwn(info, 'price') ? info.price
+            : resolvePrice(getPrices?.() ?? {}, key)) ?? {};
         for (const [name, input] of Object.entries(priceInputs)) input.value = selected[name] ?? '';
-        renderPriceMeta();
+        renderPriceMeta(info);
     }
     function syncCurrentKey() {
         currentKey = readKey(getCurrentPricingKey);
@@ -174,6 +187,12 @@ export function createPriceSettingsUi({ documentRef = globalThis.document, conte
                 input.textContent = currentKey.model || t('select_model');
                 input.title = currentKey.model;
                 input.setAttribute('aria-label', currentKey.model ? t('current_model', { value: currentKey.model }) : t('select_model'));
+            } else if (name === 'region') {
+                const caption = currentKey.region === 'global' ? t('region_global') : currentKey.region;
+                input.textContent = caption;
+                input.title = currentKey.region;
+                input.setAttribute('data-pricing-region', currentKey.region);
+                input.setAttribute('aria-label', t('current_region', { value: caption }));
             } else if (name === 'tier') input.value = currentKey[name];
         }
         renderSourceState();
