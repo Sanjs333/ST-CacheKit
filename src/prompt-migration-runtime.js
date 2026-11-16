@@ -801,7 +801,32 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
         };
         const root = cloneNode(completion.getMessages());
         if (leaves.length > MAX_MESSAGES || bytes(leaves.map(value => value.message.content)) > MAX_TEXT_BYTES) throw new RangeError('Source limit');
-        return { root, leaves };
+        const historySlots = root.collection.filter(node => node instanceof MessageCollection && node.identifier === 'chatHistory');
+        return { root, leaves, historySlot: historySlots.length === 1 ? historySlots[0] : null };
+    }
+    // The accepted native collection proves the entire preset slot, including
+    // its control messages and @D groups. Do not reconstruct unfiltered chat or
+    // reuse the stronger (and independent) macro-migration provenance checks.
+    function cacheHistoryBoundary(frame) {
+        try {
+            const slots = frame.root.collection.filter(node => node instanceof MessageCollection && node.identifier === 'chatHistory');
+            if (!frame.historySlot || slots.length !== 1 || slots[0] !== frame.historySlot) return null;
+            const leaves = frame.root.flatten();
+            if (leaves.length > MAX_MESSAGES) return null;
+            const messages = leaves.flatMap(message => new MessageCollection('proof', message).getChat());
+            const preview = new ChatCompletion(); preview.messages = frame.root;
+            if (bytes(messages) > MAX_TEXT_BYTES || !same(messages, savedGetChat.call(preview))) return null;
+            for (const message of frame.historySlot.flatten()) {
+                const payloads = new MessageCollection('proof', message).getChat();
+                if (!payloads.length) continue;
+                // An unsupported first member cannot justify a later boundary.
+                if (payloads.length !== 1 || !plainSourceMessage(message)) return null;
+                const text = sanitizeChat(payloads)[0].content;
+                if (!text) continue;
+                return { id: 'slot:chatHistory', kind: 'history-slot', role: message.role, text };
+            }
+        } catch { /* Missing or ambiguous slot structure retains the request. */ }
+        return null;
     }
     function captureCompletionFrame(completion, budget = null) {
         if (!active() || manager.error || !(completion instanceof ChatCompletion)) return null;
@@ -829,7 +854,7 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
             squash: importObservedFrame ? privateWasSquashed : hostSettings.squash_system_messages === true, used: false };
         frames.set(completion, frame);
         publish({ stage: 'assembled', messages: originalChat, complete: false,
-            sources: sourceSnapshot(frame), scopeDetails: PLUGIN_MIGRATION_SCOPE });
+            sources: sourceSnapshot(frame), historyBoundary: cacheHistoryBoundary(frame), scopeDetails: PLUGIN_MIGRATION_SCOPE });
         return frame;
     }
     async function adoptObservedFrame(observation, worldInfo) {
@@ -1224,6 +1249,7 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
             // Preserve accepted source slots before native system-message
             // squashing joins them; a joined message must not become one source.
             const updatedSources = sourceSnapshot(frame);
+            const historyBoundary = cacheHistoryBoundary(frame);
             const replacement = new ChatCompletion();
             replacement.setTokenBudget(frame.contextSize, frame.responseSize);
             const reserved = privateContextKind === 'session' && frame.contextSize === Infinity ? 0
@@ -1257,7 +1283,7 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
                 stability?.setSourceRelocated?.(Boolean(plan.collections.green?.count || plan.collections.depth?.count));
             } catch {}
             publish({ stage: 'post-plugin', messages: outgoing, sources: updatedSources,
-                complete: false, scopeDetails: PLUGIN_MIGRATION_SCOPE });
+                historyBoundary, complete: false, scopeDetails: PLUGIN_MIGRATION_SCOPE });
             report(reasons[0] ?? null, statuses, collections);
         } catch { if (active(token)) report('REBUILD_FALLBACK'); }
     }

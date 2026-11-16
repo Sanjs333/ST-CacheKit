@@ -6,12 +6,15 @@ import { mountExtensionSettings } from './extension-settings.js';
 import { createLocalizer } from './i18n.js';
 
 export const CACHE_BOUNDARY_FIELD = '__vertexPayGoCacheBoundary';
+export const CACHE_BOUNDARY_STATUS_FIELD = '__vertexPayGoCacheBoundaryStatus';
 export const CACHE_BOUNDARY_SETTINGS_KEY = 'vertex-paygo-cache-boundary';
 const MAX_BYTES = 2 * 1024 * 1024;
 const encoder = new TextEncoder();
 const bytes = value => encoder.encode(typeof value === 'string' ? value : JSON.stringify(value)).length;
-const safeHistory = source => source?.kind === 'history' && source.historyInput === true
-    && typeof source.id === 'string' && /^prompt:chatHistory-\d{1,9}$/u.test(source.id)
+const safeHistorySlot = source => source?.kind === 'history-slot' && source.id === 'slot:chatHistory';
+const safeHistory = source => (safeHistorySlot(source)
+    || source?.kind === 'history' && source.historyInput === true
+        && typeof source.id === 'string' && /^prompt:chatHistory-\d{1,9}$/u.test(source.id))
     && typeof source.text === 'string' && source.text.length > 0
     && ['user', 'assistant', 'system'].includes(source.role);
 
@@ -83,11 +86,11 @@ export function createCachePrefixBoundary({ getContext, onChange = () => {}, now
                 || !Array.isArray(payload.sources) || !Array.isArray(payload.messages)
                 || !Number.isSafeInteger(payload.generationOrdinal) || !scopeMatches(payload.requestScope, currentScope())) return;
             sweep();
-            const source = payload.sources.find(safeHistory);
-            if (!source || bytes(source.text) > MAX_BYTES || !locateCacheHistoryBoundary(payload.messages, source)) {
-                latest = null; emit({ status: 'source-unavailable', reason: '未取得唯一可核验的历史起点，保留原请求。' }); return;
+            const source = payload.historyBoundary;
+            if (!safeHistorySlot(source) || !safeHistory(source) || bytes(source.text) > MAX_BYTES || !locateCacheHistoryBoundary(payload.messages, source)) {
+                latest = null; emit({ status: 'source-unavailable', reason: '未取得唯一可核验的 Chat History 槽位起点，保留原请求。' }); return;
             }
-            latest = { source: { id: source.id, role: source.role, text: source.text, kind: 'history', historyInput: true },
+            latest = { source: { id: source.id, role: source.role, text: source.text, kind: 'history-slot' },
                 requestScope: { ...payload.requestScope }, generationOrdinal: payload.generationOrdinal, expires: now() + ttlMs };
             emit({ status: 'source-ready', reason: '已观察到本次组装的历史起点，发送前将再次核验。' });
         },

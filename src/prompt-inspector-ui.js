@@ -4,6 +4,7 @@ import { mountExtensionSettings } from './extension-settings.js';
 import { bindExtensionTheme } from './theme.js';
 import { createExtensionDialog } from './dialog.js';
 import { describePromptSource, isInternalControlSource } from './prompt-inspector-sources.js';
+import { createLocalizer } from './i18n.js';
 
 const TITLE = '上一轮提示词';
 const KINDS = new Map([
@@ -176,7 +177,8 @@ function messageSources(message, sources) {
 
 /** Read-only viewer in the Logs settings tab by default; never owns the supplied controller. */
 export function createPromptInspectorUi({ controller, mountPoint, context, documentRef = globalThis.document,
-    clipboard = globalThis.navigator?.clipboard, presentation = 'outbound' } = {}) {
+    clipboard = globalThis.navigator?.clipboard, presentation = 'outbound',
+    localize = createLocalizer((fallback, key) => context?.translate?.(fallback, key)) } = {}) {
     if (typeof documentRef?.createElement !== 'function'
         || (mountPoint !== undefined && typeof mountPoint?.append !== 'function')) {
         throw new TypeError('页面文档或指定的挂载位置不可用。');
@@ -261,10 +263,10 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
     const action = async (s, kind, fn) => {
         if (disposed || session !== s || s.busy) return;
         s.busy = kind;
-        notify(s, kind === 'clear' ? nativeLog ? '正在释放本页查看副本…' : '正在清除临时记录…' : '正在更新…');
+        notify(s, kind === 'clear' ? nativeLog ? '正在释放本页查看副本…' : '正在清除记录…' : '正在更新…');
         render();
         try { await fn(); if (session === s) notify(s, kind === 'clear'
-            ? nativeLog ? '本页查看副本已释放，宿主日志仍保留。' : '临时记录已清除。' : '状态已更新。'); }
+            ? nativeLog ? '本页查看副本已释放，宿主日志仍保留。' : '记录已清除。' : '状态已更新。'); }
         catch { notify(s, '操作失败；不会影响生成。请重试。', true); }
         finally { s.busy = ''; if (session === s && !disposed) render(); }
     };
@@ -353,7 +355,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             { type: 'button', title: nativeLog ? '释放查看副本，保留 TauriTavern 日志'
                 : tauriFrontend ? '清除当前聊天的提示词记录及保存副本'
                     : '清除当前聊天及连接的提示词记录和保存副本',
-                'aria-label': nativeLog ? '释放本页查看副本' : '清除临时记录', 'data-pi-action': 'clear' });
+                'aria-label': nativeLog ? '释放本页查看副本' : '清除记录', 'data-pi-action': 'clear' });
         s.clear.append(make('i', 'fa-solid fa-eraser', undefined, { 'aria-hidden': 'true' }));
         listen(s, s.clear, 'click', () => action(s, 'clear', () => controller.clear()));
         controls.append(s.refresh, s.clear, dismiss);
@@ -363,6 +365,16 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         metaDisclosure.append(s.metaSummary, s.metadata);
         s.metaDisclosure = metaDisclosure;
         header.append(heading, metaDisclosure);
+        s.historyRow = make('label', 'vertex-paygo-pi-history');
+        s.historySelect = make('select', 'text_pole', undefined, { 'data-pi-history': '',
+            'aria-label': localize('vertex_paygo.prompt_history.label') });
+        s.historyRow.append(make('span', '', localize('vertex_paygo.prompt_history.label')), s.historySelect);
+        s.historyRow.hidden = true;
+        listen(s, s.historySelect, 'change', () => {
+            const id = s.historySelect.value;
+            return action(s, 'history', () => controller.selectHistoryRecord?.(id));
+        });
+        header.append(s.historyRow);
         s.notice = make('div', 'vertex-paygo-pi-notice', '', { role: 'status', 'data-pi-notice': '' });
         metaDisclosure.append(s.notice);
         const work = make('div', 'vertex-paygo-pi-work');
@@ -1098,6 +1110,12 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
                 ? '按聊天保留，切回或刷新可恢复' : state.persistence?.status === 'loading' ? '正在恢复记录' : '本页临时查看');
         }
         if (state.privacyMode === 'memory-only') field('记录保留', '仅保留本页，刷新后清空');
+        if (state.privacyMode === 'user-data') field('记录保留', record.metadata?.archiveStatus === 'failed'
+            ? localize('vertex_paygo.prompt_history.save_failed') : localize('vertex_paygo.prompt_history.retention'));
+        field('槽位分段', new Map([['split', '后端已确认分段'], ['already-separated', '已独立分段'],
+            ['source-unavailable', '未取得槽位起点'], ['ambiguous', '来源匹配不唯一'], ['unsupported', '通道不支持'],
+            ['unavailable', '后端核验未通过'], ['disabled', '已关闭']]).get(record.metadata?.cacheBoundaryStatus));
+        if (Number.isSafeInteger(record.metadata?.cacheBoundaryStableTextChars)) field('稳定区字符', record.metadata.cacheBoundaryStableTextChars.toLocaleString('zh-CN'));
         if (state.privacyMode === 'host-artifact') field('记录保留', '保存于 Agent 工作区，刷新可恢复');
         field('来源收集', record.trace?.complete === true && state.sourceAvailable !== false ? '完整' : '部分未收集',
             '来源包含预设、世界书、角色和扩展，完整性与发送正文分别判断。');
@@ -1116,6 +1134,23 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             || (state.recordAvailable === true && Boolean(state.record));
         const record = state.record && typeof state.record === 'object' ? state.record : null;
         s.frontend = !nativeLog && (record?.metadata?.captureKind ?? state.captureKind) === 'frontend-messages';
+        s.historyRow.hidden = nativeLog || s.frontend || state.historyAvailable !== true;
+        if (!s.historyRow.hidden) {
+            const entries = asArray(state.history);
+            const selectable = entries.some(value => value.id === record?.id);
+            const choices = !selectable && record ? [record, ...entries] : entries;
+            const historyKey = JSON.stringify(choices.map(value => [value.id, value.sequence, value.state]));
+            if (s.historyKey !== historyKey) {
+                s.historyKey = historyKey; s.historySelect.replaceChildren();
+                for (const value of choices) {
+                    const timestamp = new Date(value.capturedAt);
+                    const date = Number.isFinite(timestamp.getTime()) ? timestamp.toLocaleString('zh-CN', { hour12: false }) : value.sequence;
+                    s.historySelect.append(make('option', '', `${date} · ${REQUEST_STATES.get(value.state) ?? value.state}`, { value: value.id }));
+                }
+            }
+            s.historySelect.value = record?.id ?? entries[0]?.id ?? '';
+            s.historySelect.disabled = !entries.length || Boolean(s.busy);
+        }
         if (!nativeLog) {
             for (const [id, label] of [['final', s.frontend ? frontendRecordLabel(record) : '最终发送'], ['raw', s.frontend ? recordName(s) : '原始请求']]) {
                 const tab = s.tabs.get(id);
@@ -1164,13 +1199,14 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
             : '酒馆后端提交前的消息快照。后端可能继续转换内容，服务商最终请求未捕获。');
         else if (!nativeLog && record?.trace?.reason === 'PUBLIC_EVENT_CAPTURE') notices.push('已捕获插件代理的最终请求，来源和阶段信息仅包含实际记录部分。');
         if (nativeLog) notices.push(state.notice || '全局模型日志未关联当前聊天，来源与阶段未记录。宿主可能省略媒体和续接状态。');
-        if (s.record && state.persistence?.evicted > 0) notices.push('标签页保存空间已满，较早聊天记录已释放，当前记录已保留。');
-        if (s.record && ['unavailable', 'too-large', 'invalid'].includes(state.persistence?.status)) {
+        if (s.record && state.privacyMode !== 'user-data' && state.persistence?.evicted > 0) notices.push('标签页保存空间已满，较早聊天记录已释放，当前记录已保留。');
+        if (s.record && state.privacyMode !== 'user-data' && ['unavailable', 'too-large', 'invalid'].includes(state.persistence?.status)) {
             notices.push(state.persistence.status === 'too-large'
                 ? '记录超过保存上限，刷新后将丢失。本页仍可查看和复制。'
                 : '记录保存失败，刷新后可能丢失。本页仍可查看和复制。');
         }
-        if (s.record && state.persistence?.traceOmitted === true) notices.push('已保存提示词正文，来源和阶段信息超过保存上限。刷新后仅恢复正文。');
+        if (s.record && state.privacyMode !== 'user-data' && state.persistence?.traceOmitted === true) notices.push('已保存提示词正文，来源和阶段信息超过保存上限。刷新后仅恢复正文。');
+        if (s.record?.metadata?.archiveStatus === 'failed') notices.push(localize('vertex_paygo.prompt_history.save_failed'));
         if (state.generationMode === 'unknown') notices.push('生成模式未确认，记录位置按实际提交阶段标注。');
         if (state.error) notices.push(text(state.error.message) || '读取临时记录失败。');
         if (record?.state === 'failed' && !blocked) notices.push(s.frontend ? '前端请求失败，服务商接收状态未确认。' : nativeLog ? '宿主记录的请求状态为失败。'

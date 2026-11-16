@@ -1,4 +1,4 @@
-/* Automatic final prompt evidence. Latest snapshot per chat/connection in tab-session storage; no settings, logs, or model calls. */
+/* Automatic final prompt evidence. User-owned rolling archive plus a tab-session copy; no model calls. */
 import { completionIdentity } from './worldinfo-stability.js';
 import { createPromptInspectorSessionStore } from './prompt-inspector-session.js';
 import { canonicalHistoryId, describePromptSource } from './prompt-inspector-sources.js';
@@ -57,6 +57,7 @@ export function createPromptInspectorController({ context, getContext = () => co
     const listeners = new Set(), subscriptions = [], pending = new Map();
     let destroyed = false, enabled = true, backendAvailable = false, status = 'idle', error = null;
     let nativeRelaySources = new Set(), lastCapabilityCheck = 0;
+    let historyAvailable = false, history = [], historySerial = 0, historySelectionSerial = 0;
     let armedScope = null, generation = null, epoch = 0, ordinal = 0, requestOrdinal = 0, recordOrdinal = 0, record = null, latestTicket = null, recordReservation = null;
     const sessionStore = createPromptInspectorSessionStore({ getStorage: getSessionStorage, cryptoRef: sessionCrypto, now });
     let restorePending = true, restoration = null, restoredRecord = false;
@@ -106,10 +107,11 @@ export function createPromptInspectorController({ context, getContext = () => co
     }
     function disposeTicket(ticket) {
         if (typeof ticket !== 'string' || ticket.startsWith('frontend-')) return;
-        try { const promise = serverClient?.clearPromptInspector?.(ticket); promise?.catch?.(() => {}); } catch { /* Optional capture cleanup. */ }
+        try { const promise = serverClient?.clearPromptInspector?.({ ticket, pendingOnly: true }); promise?.catch?.(() => {}); } catch { /* Only discard unused credentials, never archived requests. */ }
     }
     function release({ disable = false, notify = true, clearSaved = false } = {}) {
         epoch++; restoration = null;
+        historySerial++; historySelectionSerial++; history = [];
         const clearing = clearSaved && armedScope ? sessionStore.clear(armedScope) : null;
         if (!clearing) sessionStore.cancel();
         persistence = { status: 'empty' };
@@ -293,6 +295,11 @@ export function createPromptInspectorController({ context, getContext = () => co
         },
         captureStage,
         captureUnavailable() { if (active()) incomplete('SOURCE_CAPTURE_UNAVAILABLE'); },
+        captureCacheBoundaryStatus(value) {
+            if (!active() || typeof value?.status !== 'string') return;
+            addEvent({ kind: 'cache-boundary', label: 'Chat History 槽位分段核验',
+                after: { status: value.status, enabled: value.enabled === true } });
+        },
     };
     function listen(name, fn) {
         const event = context?.eventTypes?.[name];
@@ -334,12 +341,13 @@ export function createPromptInspectorController({ context, getContext = () => co
             const health = await serverClient?.checkHealth?.(), cap = health?.capabilities?.promptInspector;
             if (!destroyed && serial === capabilitySerial) {
                 backendAvailable = Boolean(cap === true || (cap && typeof cap === 'object' && cap.available !== false && cap.enabled !== false));
+                historyAvailable = backendAvailable && Number.isSafeInteger(cap?.limits?.maxHistoryEntries) && cap.limits.maxHistoryEntries > 0;
                 nativeRelaySources = new Set(backendAvailable && Array.isArray(cap?.pluginWireSources)
                     && typeof serverClient?.prepareNativeRequest === 'function' ? cap.pluginWireSources.filter(source => NATIVE.has(source)) : []);
                 lastCapabilityCheck = now();
             }
         } catch { if (!destroyed && serial === capabilitySerial) {
-            backendAvailable = false; nativeRelaySources.clear(); lastCapabilityCheck = now();
+            backendAvailable = false; historyAvailable = false; nativeRelaySources.clear(); lastCapabilityCheck = now();
         } }
         return backendAvailable;
     }
@@ -526,7 +534,7 @@ export function createPromptInspectorController({ context, getContext = () => co
                 const value = result?.snapshot;
                 if (value && typeof value === 'object') {
                     const current = validScope();
-                    if ((ticket ? value.id !== ticket : typeof value.id !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(value.id)) || value.chatId !== current?.chatId || value.source !== current?.source || value.model !== current?.model
+                    if (typeof value.id !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(value.id) || value.chatId !== current?.chatId || value.source !== current?.source || value.model !== current?.model
                         || !Number.isSafeInteger(value.sequence) || value.sequence < 0
                         || (value.rawRequest != null && typeof value.rawRequest !== 'string')) { fail('RECORD_UNAVAILABLE'); return null; }
                     if (!value.sequence || (value.rawRequest == null && ['pending', 'dispatched'].includes(value.state))) {
@@ -551,17 +559,17 @@ export function createPromptInspectorController({ context, getContext = () => co
                         if (latestTicket === ticket) latestTicket = record?.id ?? null;
                         fail(value.state === 'oversize' ? 'RECORD_TOO_LARGE' : 'CAPTURE_UNAVAILABLE'); return record;
                     }
-                    const owned = pending.get(value.id) ?? (record?.id === value.id ? recordReservation : null) ?? (state?.ticket === value.id ? state : null);
+                    const owned = state ?? pending.get(ticket) ?? pending.get(value.id) ?? (ticket === null || record?.id === value.id ? recordReservation : null);
                     if (!owned || owned.cancelled || owned.epoch !== epoch || owned.scope !== current.key) return null;
                     // Client request order and backend capture sequence are separate counters.
                     if (!record || restoredRecord || owned.requestOrdinal > recordOrdinal
-                        || (owned.requestOrdinal === recordOrdinal && value.id === record.id && value.sequence >= record.sequence)) {
+                        || (owned.requestOrdinal === recordOrdinal && owned.ticket === recordReservation?.ticket && value.sequence >= record.sequence)) {
                         record = { ...clone(value), complete: value.complete === true && typeof value.rawRequest === 'string' && !['pending', 'oversize'].includes(value.state) };
-                        recordReservation = owned; recordOrdinal = owned.requestOrdinal; latestTicket = value.id; restoredRecord = false;
+                        recordReservation = owned; recordOrdinal = owned.requestOrdinal; latestTicket = owned.ticket; restoredRecord = false;
                         restorePending = false; status = 'ready'; error = null; persistence = { status: 'saving' }; emit();
                         await saveRecord(record, current);
                     }
-                    pending.delete(value.id); return value;
+                    pending.delete(owned.ticket); void loadHistory(); return value;
                 }
                 const condition = result?.status;
                 if (condition === 'unknown' && !ticket) { status = pending.size ? 'pending' : record ? 'ready' : 'idle'; error = null; emit(); return record; }
@@ -586,6 +594,34 @@ export function createPromptInspectorController({ context, getContext = () => co
         }
         return null;
     }
+    async function loadHistory() {
+        const current = validScope(), savedEpoch = epoch, serial = ++historySerial;
+        if (!historyAvailable || !enabled || !current) return [];
+        try {
+            const result = await serverClient?.readPromptInspector?.({ chatId: current.chatId, source: current.source, model: current.model, history: true });
+            if (destroyed || !enabled || epoch !== savedEpoch || validScope()?.key !== current.key || serial !== historySerial) return [];
+            history = (Array.isArray(result?.history) ? result.history : []).slice(0, 30).filter(value =>
+                typeof value?.id === 'string' && /^[A-Za-z0-9_-]{16,128}$/.test(value.id)
+                && value.chatId === current.chatId && value.source === current.source && value.model === current.model
+                && Number.isSafeInteger(value.sequence) && value.sequence > 0);
+            emit(); return history;
+        } catch { return history; }
+    }
+    async function selectHistoryRecord(id) {
+        const current = validScope(), savedEpoch = epoch, startingRecord = record, selection = ++historySelectionSerial;
+        if (!historyAvailable || !enabled || !current || !history.some(value => value.id === id)) return null;
+        const result = await serverClient?.readPromptInspector?.({ ticket: id, chatId: current.chatId, source: current.source, model: current.model });
+        if (destroyed || !enabled || epoch !== savedEpoch || validScope()?.key !== current.key
+            || selection !== historySelectionSerial || record !== startingRecord) return null;
+        const value = result?.snapshot;
+        if (value?.id !== id || value.chatId !== current.chatId || value.source !== current.source || value.model !== current.model
+            || !Number.isSafeInteger(value.sequence) || value.sequence < 1
+            || value.rawRequest !== null && typeof value.rawRequest !== 'string') return null;
+        record = clone(value); recordReservation = null; latestTicket = null; restoredRecord = true;
+        restorePending = false; status = 'ready'; error = null; emit();
+        if (typeof record.rawRequest === 'string') await saveRecord(record, current);
+        return record;
+    }
     armedScope = scope()?.key ?? null;
     void restoreSaved();
     return {
@@ -598,7 +634,11 @@ export function createPromptInspectorController({ context, getContext = () => co
                 captureKind: record?.metadata?.captureKind ?? (record ? 'outbound'
                     : pending.get(latestTicket)?.captureMode === 'native' || pending.get(latestTicket)?.captureMode === 'google' ? 'outbound'
                         : pending.get(latestTicket)?.captureMode === 'frontend' || (current && !GOOGLE.has(current.source)) ? 'frontend-messages' : 'outbound'),
-                recordAvailable: Boolean(record), restored: Boolean(record && (restoredRecord || !recordReservation)), persistence: { ...persistence }, privacyMode: 'tab-session' };
+                recordAvailable: Boolean(record), restored: Boolean(record && (restoredRecord || !recordReservation)), persistence: { ...persistence },
+                historyAvailable, history: history.map(value => ({ ...value })),
+                privacyMode: historyAvailable && record?.metadata?.captureKind !== 'frontend-messages'
+                    && (!record || ['saved', 'failed'].includes(record.metadata?.archiveStatus) || history.some(value => value.id === record.id))
+                    ? 'user-data' : 'tab-session' };
         },
         subscribe(fn) {
             if (typeof fn !== 'function') throw new TypeError('缺少事件监听函数');
@@ -622,6 +662,11 @@ export function createPromptInspectorController({ context, getContext = () => co
             if ((GOOGLE.has(scope()?.source) && !frontend)
                 || (NATIVE.has(scope()?.source) && typeof serverClient?.prepareNativeRequest === 'function')) await refreshCapabilities();
             if (destroyed || epoch !== refreshEpoch || scope()?.key !== refreshScope || enabled !== startedEnabled) return null;
+            if (historyAvailable && enabled) {
+                await loadHistory();
+                if (destroyed || epoch !== refreshEpoch || scope()?.key !== refreshScope || enabled !== startedEnabled) return null;
+                if (!record && history.length && !pending.size) return selectHistoryRecord(history[0].id);
+            }
             if (!enabled || (!pending.size && !recordReservation)) { emit(); return record; }
             const current = validScope();
             const latest = pending.get(latestTicket) ?? recordReservation;
@@ -631,7 +676,13 @@ export function createPromptInspectorController({ context, getContext = () => co
             if (current) return readRecord({ chatId: current.chatId, source: current.source, model: current.model });
             emit(); return record;
         },
-        clear() { validScope(); restorePending = false; return release({ clearSaved: true }); },
+        async clear() {
+            const current = validScope(); restorePending = false;
+            const clearing = historyAvailable && current ? serverClient?.clearPromptInspector?.({ chatId: current.chatId, source: current.source, model: current.model }) : null;
+            await release({ clearSaved: true }); await clearing;
+        },
+        loadHistory,
+        selectHistoryRecord,
         reserveRequest,
         ownsFrontendCandidate,
         updateFrontendRequest,

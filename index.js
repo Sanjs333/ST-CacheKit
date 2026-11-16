@@ -209,7 +209,10 @@ export async function init() {
         }
         try {
             cachePrefixBoundary = createCachePrefixBoundary({ getContext: () => globalThis.SillyTavern.getContext(),
-                onChange: () => cachePrefixBoundarySettings?.render() });
+                onChange: () => {
+                    cachePrefixBoundarySettings?.render();
+                    promptInspectorController?.observer?.captureCacheBoundaryStatus?.(cachePrefixBoundary?.snapshot());
+                } });
             cachePrefixBoundarySettings = createCachePrefixBoundarySettings({ boundary: cachePrefixBoundary,
                 getContext: () => globalThis.SillyTavern.getContext(), localize });
         } catch { console.warn('[提示词缓存优化] Source-backed prefix boundary is unavailable.'); }
@@ -230,7 +233,7 @@ export async function init() {
             console.warn('[提示词缓存优化] Cache settings are unavailable.');
         }
         if (promptInspectorController) {
-            try { promptInspectorUi = createPromptInspectorUi({ controller: promptInspectorController, context }); }
+            try { promptInspectorUi = createPromptInspectorUi({ controller: promptInspectorController, context, localize }); }
             catch { console.warn('[提示词缓存优化] Prompt viewer is unavailable.'); }
         }
 

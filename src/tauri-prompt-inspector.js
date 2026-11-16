@@ -1,6 +1,7 @@
 /* Read-only Tauri native request records. SPDX-License-Identifier: MPL-2.0. */
 import { createPromptInspectorUi } from './prompt-inspector-ui.js';
 import { mountExtensionSettings } from './extension-settings.js';
+import { createLocalizer } from './i18n.js';
 
 export const TAURI_PROMPT_INSPECTOR_NOTICE = 'TauriTavern 全局模型日志，未关联当前聊天，未追踪提示词来源或构建阶段。JSON 由宿主整理，可能省略媒体与模型私有续接状态；无法核验逐字节网络请求。';
 const INDEX_LIMIT = 64;
@@ -185,7 +186,8 @@ export function createTauriPromptInspectorController({ api, indexLimit = INDEX_L
 
 /** Optional tool; absence of native dev APIs does not affect requests or costs. */
 export function createTauriPromptInspector({ context, api, documentRef = globalThis.document,
-    clipboard = globalThis.navigator?.clipboard, controller: suppliedController } = {}) {
+    clipboard = globalThis.navigator?.clipboard, controller: suppliedController,
+    localize = createLocalizer((fallback, key) => context?.translate?.(fallback, key)) } = {}) {
     const controller = suppliedController ?? createTauriPromptInspectorController({ api });
     const make = (tag, value = '', attrs = {}) => {
         const node = documentRef.createElement(tag); if (value) node.textContent = value;
@@ -200,7 +202,7 @@ export function createTauriPromptInspector({ context, api, documentRef = globalT
     try {
         viewer = createPromptInspectorUi({ controller, mountPoint: root, context, documentRef, clipboard, presentation: 'tauri-log' });
         root.append(make('small', TAURI_PROMPT_INSPECTOR_NOTICE, { class: 'vertex-paygo-guidance' }));
-        const filters = make('div', '', { class: 'vertex-paygo-log-filters' });
+        const filters = make('div', '', { class: 'vertex-paygo-tauri-record-filters' });
         const source = make('select', '', { class: 'text_pole', 'aria-label': '请求来源', 'data-tauri-record-source': '' });
         const model = make('select', '', { class: 'text_pole', 'aria-label': '请求模型', 'data-tauri-record-model': '' });
         for (const [control, name] of [[source, '来源'], [model, '模型']]) {
@@ -210,9 +212,13 @@ export function createTauriPromptInspector({ context, api, documentRef = globalT
         const record = make('select', '', { class: 'text_pole', 'aria-label': '选择原生请求记录', 'data-tauri-record-id': '' });
         const recordRow = make('label', '', { class: 'vertex-paygo-cache-selector' });
         recordRow.append(make('span', '记录'), record);
-        const refresh = make('button', '刷新列表', { type: 'button', class: 'menu_button' });
+        const refresh = make('button', '', { type: 'button', class: 'vertex-paygo-icon-button vertex-paygo-log-tool',
+            title: localize('vertex_paygo.tauri_records.refresh'), 'aria-label': localize('vertex_paygo.tauri_records.refresh') });
+        refresh.append(make('i', '', { class: 'fa-solid fa-rotate-right', 'aria-hidden': 'true' }));
+        const actions = make('div', '', { class: 'vertex-paygo-pi-controls vertex-paygo-tauri-record-actions' });
+        actions.append(refresh);
         const status = make('small', '', { class: 'vertex-paygo-status', role: 'status', 'aria-live': 'polite' });
-        root.append(filters, recordRow, refresh, status);
+        actions.append(status); root.append(filters, recordRow, actions);
         const option = (value, text) => make('option', text, { value });
         const render = () => {
             if (destroyed) return;

@@ -304,7 +304,7 @@ function validateHandshake(data) {
     return data;
 }
 
-// Inspector content is private ephemeral request evidence, never a log entry.
+// Inspector content stays in the user's request archive, outside general logs.
 async function fetchInspectorJson(fetchImpl, url, options, timeoutMs = 3000) {
     const text = await fetchText(fetchImpl, url, options, timeoutMs, {
         maxBytes: 16 * 1024 * 1024,
@@ -320,6 +320,8 @@ const inspectorQuery = value => {
     else if (options?.chatId) params.set('chatId', options.chatId);
     if (typeof options?.source === 'string') params.set('source', options.source);
     if (typeof options?.model === 'string') params.set('model', options.model);
+    if (options?.history === true) params.set('history', 'true');
+    if (options?.pendingOnly === true) params.set('pendingOnly', 'true');
     return params.size ? '?' + params.toString() : '';
 };
 

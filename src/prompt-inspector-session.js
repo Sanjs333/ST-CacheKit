@@ -9,7 +9,7 @@ const RECORD_FIELDS = ['version', 'kind', 'id', 'chatId', 'source', 'model', 'se
 const METADATA_FIELDS = ['transport', 'tier', 'region', 'stream', 'httpStatus', 'statusCode', 'durationMs', 'bodyBytes',
     'actualModel', 'traceError', 'finalStageError', 'captureKind', 'bodyEvidence', 'networkBytesVerified',
     'providerBodyAvailable', 'frontendMessagesComplete', 'capturePhase', 'association', 'handoffConfirmed',
-    'responseOk', 'initialAssemblyOnly', 'runId', 'stableChatId'];
+    'responseOk', 'initialAssemblyOnly', 'runId', 'stableChatId', 'cacheBoundaryStatus', 'cacheBoundaryStableTextChars', 'archiveStatus'];
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const id = value => typeof value === 'string' && /^[A-Za-z0-9_-]{16,128}$/u.test(value);
 const encodeEntries = entries => `{"version":2,"entries":[${entries.join(',')}]}`;

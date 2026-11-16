@@ -12,7 +12,7 @@ import {
     localizeGemini4Response, serverSupportsNativeGemini4,
 } from './gemini4-request.js';
 import { createGemini4SignatureTracker } from './gemini4-signatures.js';
-import { CACHE_BOUNDARY_FIELD } from './cache-prefix-boundary.js';
+import { CACHE_BOUNDARY_FIELD, CACHE_BOUNDARY_STATUS_FIELD } from './cache-prefix-boundary.js';
 import { applySystemPromptPreference } from './system-prompt-settings.js';
 
 const REQUEST_STATE = '__vertexPayGoRequestState';
@@ -163,8 +163,9 @@ export function installRequestTransport({ context, stateProvider, target = globa
         if (typeof rawBody !== 'string') throw new TypeError('[提示词缓存优化] Expected a JSON generation request.');
         const data = JSON.parse(rawBody);
         applySystemPromptPreference(data, target.SillyTavern?.getContext?.() ?? context);
-        const hadBoundaryMarker = Object.hasOwn(data, CACHE_BOUNDARY_FIELD);
+        const hadBoundaryMarker = Object.hasOwn(data, CACHE_BOUNDARY_FIELD) || Object.hasOwn(data, CACHE_BOUNDARY_STATUS_FIELD);
         delete data[CACHE_BOUNDARY_FIELD];
+        delete data[CACHE_BOUNDARY_STATUS_FIELD];
         const hadInspectorMarker = Object.hasOwn(data, PROMPT_INSPECTOR_FIELD);
         delete data[PROMPT_INSPECTOR_FIELD];
         const hadOrderMarker = Object.hasOwn(data, '__vertexPayGoNativeOrder');
@@ -275,6 +276,12 @@ export function installRequestTransport({ context, stateProvider, target = globa
                 try { boundary = await cachePrefixBoundary?.bindRequest?.(metadata.cacheBoundaryToken, data,
                     { supported: nativeGemini4 && preparedOrder?.nativeGeminiCacheBoundary === true }); } catch {}
                 if (boundary) data[CACHE_BOUNDARY_FIELD] = boundary;
+            }
+            if (nativeGemini4 && metadata?.background !== true) {
+                try {
+                    const state = cachePrefixBoundary?.snapshot?.();
+                    if (state) data[CACHE_BOUNDARY_STATUS_FIELD] = { version: 1, status: state.enabled ? state.status : 'disabled' };
+                } catch { /* Optional diagnostic metadata never changes generation. */ }
             }
             signal?.throwIfAborted();
             if (costToken) observe('started', costToken);
