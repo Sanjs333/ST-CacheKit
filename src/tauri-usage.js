@@ -18,7 +18,7 @@ function table(chatId) {
 }
 function metadata(value, idFactory) {
     const out = {};
-    for (const key of ['id', 'chatId', 'source', 'model', 'tier', 'region', 'paygoOnly', 'stream', 'startedAt']) if (value?.[key] !== undefined) out[key] = value[key];
+    for (const key of ['id', 'chatId', 'source', 'model', 'tier', 'region', 'paygoOnly', 'stream', 'startedAt', 'cacheWarm']) if (value?.[key] !== undefined) out[key] = value[key];
     const price = normalizePrice(value?.price);
     if (price) out.price = price;
     out.id ||= idFactory?.();

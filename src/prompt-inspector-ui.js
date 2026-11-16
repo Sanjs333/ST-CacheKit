@@ -812,10 +812,11 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         let observed = 0;
         for (const change of asArray(s.view.changes)) {
             if (change?.evidence !== 'observed') continue;
-            if (s.query && !matchesQuery(s, `${text(change.label)}\n${text(change.kind)}\n${inspectRecord(change.before, s)}\n${inspectRecord(change.after, s)}`)) continue;
+            const changeLabel = change.kind === 'cache-warm' ? localize('vertex_paygo.cache_warm.title') : text(change.label);
+            if (s.query && !matchesQuery(s, `${changeLabel}\n${text(change.kind)}\n${inspectRecord(change.before, s)}\n${inspectRecord(change.after, s)}`)) continue;
             observed++;
             const card = make('article', 'vertex-paygo-pi-change');
-            card.append(make('strong', '', text(change.label) || text(change.kind) || '已记录变化'), make('small', 'vertex-paygo-pi-muted', '已核验'));
+            card.append(make('strong', '', changeLabel || text(change.kind) || '已记录变化'), make('small', 'vertex-paygo-pi-muted', '已核验'));
             for (const id of asArray(change.sourceIds)) if (s.sources.has(id)) card.append(sourceButton(s, id));
             if (change.before !== undefined || change.after !== undefined) {
                 const detail = make('details', 'vertex-paygo-pi-part-detail'); detail.append(make('summary', '', '变更前后记录'));
@@ -1098,6 +1099,7 @@ export function createPromptInspectorUi({ controller, mountPoint, context, docum
         }
         field('响应状态码', text(record.metadata?.httpStatus ?? record.metadata?.statusCode));
         field('失败代码', text(record.errorCode));
+        if (record.metadata?.cacheWarm === true) field(localize('vertex_paygo.cache_warm.purpose'), localize('vertex_paygo.cache_warm.title'));
         if (typeof record.metadata?.durationMs === 'number') field('耗时', `${record.metadata.durationMs} 毫秒`);
         if (typeof record.metadata?.stream === 'boolean') field(tauriFrontend ? '前端流式设置' : '流式响应', record.metadata.stream ? '开启（逐段接收）' : '关闭（一次接收）',
             tauriFrontend ? '前端设置已记录，实际输出方式未确认。' : '流式模式逐段显示，非流式模式等待完整响应。');

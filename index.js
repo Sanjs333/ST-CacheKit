@@ -33,6 +33,8 @@ import { createPromptInspectorUi } from './src/prompt-inspector-ui.js';
 import { createSystemPromptSettings } from './src/system-prompt-settings.js';
 import { createBillingUi } from './src/billing-ui.js';
 import { createCachePrefixBoundary, createCachePrefixBoundarySettings } from './src/cache-prefix-boundary.js';
+import { createCacheWarmer } from './src/cache-warmer.js';
+import { createCacheWarmerSettings } from './src/cache-warmer-ui.js';
 
 let initialized = false;
 let controller = null;
@@ -55,6 +57,8 @@ let systemPromptSettings = null;
 let billingUi = null;
 let cachePrefixBoundary = null;
 let cachePrefixBoundarySettings = null;
+let cacheWarmer = null;
+let cacheWarmerSettings = null;
 
 globalThis.vertexPayGoGemini4GenerateInterceptor = chat => {
     try { gemini4Host?.captureMessages(chat); }
@@ -280,6 +284,11 @@ export async function init() {
             },
         });
 
+        try {
+            cacheWarmer = createCacheWarmer({ getContext: () => globalThis.SillyTavern.getContext(),
+                onChange: () => cacheWarmerSettings?.render() });
+            cacheWarmerSettings = createCacheWarmerSettings({ warmer: cacheWarmer, getContext: () => globalThis.SillyTavern.getContext(), localize });
+        } catch { cacheWarmer?.destroy(); cacheWarmer = null; console.warn('[提示词缓存优化] Cache warming controls are unavailable.'); }
         requestHook = installRequestTransport({
             context,
             stateProvider: controller.getState,
@@ -295,6 +304,7 @@ export async function init() {
             worldInfoStability,
             promptInspector: promptInspectorController,
             cachePrefixBoundary,
+            cacheWarmer,
         });
         requestHookContext = context;
 
@@ -337,6 +347,8 @@ export async function init() {
         release(() => systemPromptSettings?.destroy()); systemPromptSettings = null;
         release(() => cachePrefixBoundarySettings?.destroy()); cachePrefixBoundarySettings = null;
         release(() => cachePrefixBoundary?.destroy()); cachePrefixBoundary = null;
+        release(() => cacheWarmerSettings?.destroy()); cacheWarmerSettings = null;
+        release(() => cacheWarmer?.destroy()); cacheWarmer = null;
         release(() => billingUi?.destroy()); billingUi = null;
         release(() => cacheDiagnosticsUi?.destroy());
         cacheDiagnosticsUi = null;

@@ -17,6 +17,8 @@ import { createCachePrefixBoundarySettings } from './cache-prefix-boundary.js';
 import { createTauriCacheBoundary } from './tauri-cache-boundary.js';
 import { createBillingUi } from './billing-ui.js';
 import { createTauriBillingClient } from './tauri-billing.js';
+import { createCacheWarmer } from './cache-warmer.js';
+import { createCacheWarmerSettings } from './cache-warmer-ui.js';
 
 export function assertTauriCapabilities(context, platform) {
     const store = platform?.api?.extension?.store;
@@ -81,6 +83,7 @@ export async function initTauriTavern({ target = globalThis, documentRef = targe
     let systemPromptSettings;
     let cacheBoundary;
     let cacheBoundarySettings;
+    let cacheWarmer, cacheWarmerSettings;
     let unsubscribeCacheSources;
     let billingClient;
     let billingUi;
@@ -99,7 +102,7 @@ export async function initTauriTavern({ target = globalThis, documentRef = targe
         catch { console.warn('[提示词缓存优化] Could not remove the Tauri request listener.'); }
         try { unsubscribeCacheSources?.(); }
         catch { console.warn('[提示词缓存优化] Could not remove the Tauri cache source listener.'); }
-        for (const component of [transport, frontendPromptInspector, agentPromptCapture, promptInspector, cacheDiagnosticsUi, billingUi, billingClient, cacheBoundarySettings, cacheBoundary, systemPromptSettings, cacheTools, controller, messageCosts, messageCostUi, costUi, costs, usage]) {
+        for (const component of [transport, frontendPromptInspector, agentPromptCapture, promptInspector, cacheDiagnosticsUi, billingUi, billingClient, cacheWarmerSettings, cacheWarmer, cacheBoundarySettings, cacheBoundary, systemPromptSettings, cacheTools, controller, messageCosts, messageCostUi, costUi, costs, usage]) {
             try { component?.destroy?.(); }
             catch { console.warn('[提示词缓存优化] Could not release a Tauri extension component.'); }
         }
@@ -179,7 +182,12 @@ export async function initTauriTavern({ target = globalThis, documentRef = targe
         } catch {
             console.warn('[提示词缓存优化] Tauri cache diagnostics are unavailable.');
         }
-        transport = (factories.transport ?? installTauriTransport)({ context, getContext, target, yaml,
+        try {
+            cacheWarmer = (factories.cacheWarmer ?? createCacheWarmer)({ getContext, yaml,
+                onChange: () => cacheWarmerSettings?.render() });
+            cacheWarmerSettings = (factories.cacheWarmerSettings ?? createCacheWarmerSettings)({ warmer: cacheWarmer, getContext, documentRef, localize });
+        } catch { cacheWarmer?.destroy(); cacheWarmer = null; console.warn('[提示词缓存优化] Cache warming controls are unavailable.'); }
+        transport = (factories.transport ?? installTauriTransport)({ context, getContext, target, yaml, cacheWarmer,
             stateProvider: controller.getState, usageClient: usage, messageCosts,
             getPromptInspector: () => frontendPromptInspector?.controller,
             getPromptMigration: () => cacheTools?.migration,
@@ -249,7 +257,7 @@ export async function initTauriTavern({ target = globalThis, documentRef = targe
         timer = target.setInterval(() => void refreshCatalog().catch(error =>
             console.warn('[提示词缓存优化] Model policy refresh failed.', error)), MODEL_POLICY_REFRESH_INTERVAL_MS);
         return { ...controller, destroy, usageClient: usage, cacheTools, promptInspector, frontendPromptInspector,
-            agentPromptCapture, cacheDiagnosticsUi, systemPromptSettings, cacheBoundary, cacheBoundarySettings,
+            agentPromptCapture, cacheDiagnosticsUi, systemPromptSettings, cacheBoundary, cacheBoundarySettings, cacheWarmer, cacheWarmerSettings,
             billingClient, billingUi, mode: 'tauri',
             captureMessages(chat) { if (!destroyed) return cacheTools?.migration?.captureMessages?.(chat); } };
     } catch (error) { destroy(); throw error; }

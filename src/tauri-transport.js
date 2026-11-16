@@ -18,6 +18,7 @@ import { installTauriAgentTransport } from './tauri-agent-transport.js';
 import { applySystemPromptPreference } from './system-prompt-settings.js';
 import { applyTauriAgentSystemPromptPreference } from './tauri-system-prompt.js';
 import { pricingRegion } from './cost-model.js';
+import { CACHE_WARM_FIELD } from './cache-warmer.js';
 import {
     applyTauriParameters,
     hasExplicitTauriState,
@@ -344,6 +345,7 @@ function callObservation(usageClient, response, metadata, signal) {
             price: metadata.price,
             startedAt: metadata.startedAt,
             requestPreview: metadata.requestPreview,
+            ...(metadata.cacheWarm === true ? { cacheWarm: true } : {}),
         }, { signal });
         if (result && typeof result.then === 'function') {
             void result.catch(error => callFailure(usageClient, error, metadata));
@@ -379,6 +381,7 @@ export function installTauriTransport({
     target = globalThis,
     yaml,
     usageClient,
+    cacheWarmer,
     messageCosts,
     getPromptInspector = () => null,
     getPromptMigration = () => null,
@@ -626,7 +629,11 @@ export function installTauriTransport({
             throw new TypeError('[提示词缓存优化] Expected a JSON generation request.');
         }
         const data = JSON.parse(rawBody);
+        const warming = data[CACHE_WARM_FIELD] === true;
+        if (warming) data[REQUEST_STATE] = { background: true, chatId: fallbackChatId };
+        delete data[CACHE_WARM_FIELD];
         const requestMetadata = isRecord(data[REQUEST_STATE]) ? data[REQUEST_STATE] : null;
+        if (!warming && requestMetadata?.background !== true) { try { cacheWarmer?.stop?.(); } catch {} }
         confirmMigration(data.messages, requestMetadata, 'FINAL_PROMPT_ASSEMBLY_UNMIGRATED');
         let cleanedMacros = false;
         if (Array.isArray(data.messages)) {
@@ -661,6 +668,7 @@ export function installTauriTransport({
         let validationState;
         let prepared;
         let usageMetadata = requestMetadata;
+        let warmCandidate = null;
         let inspection = null, dispatched = false;
         try {
             signalAbort(signal);
@@ -716,6 +724,7 @@ export function installTauriTransport({
                 price: finalPrice !== undefined ? finalPrice : (samePricingIdentity ? undefined : null),
                 startedAt: requestMetadata?.startedAt ?? fallbackStartedAt,
             });
+            if (warming && usageMetadata) usageMetadata.cacheWarm = true;
             try {
                 await getBillingClient()?.applyLabels?.(prepared, {
                     chatId: usageMetadata?.chatId, requestId: usageMetadata?.id,
@@ -746,13 +755,23 @@ export function installTauriTransport({
                 }
                 catch { /* Request summaries cannot affect generation. */ }
             }
+            if (!warming) {
+                try {
+                    warmCandidate = cacheWarmer?.captureRequest?.(prepared, (request, warmSignal) => tauriFetch.call(target, GENERATE_PATH, {
+                        method: 'POST', headers: getContext()?.getRequestHeaders?.() ?? init?.headers,
+                        body: JSON.stringify(request), signal: warmSignal,
+                    }), { background: requestMetadata?.background === true, preserveProxy: true });
+                } catch { /* Warming cannot affect the real request. */ }
+            }
             const sending = originalFetch.call(this, input, { ...init, body });
             void observePrompt(inspection, 'markDispatched');
             const response = await sending;
+            if (warmCandidate) void cacheWarmer.observeResponse(warmCandidate, response).catch(() => {});
             void observePrompt(inspection, 'finishRequest', { responseOk: response.ok, httpStatus: response.status });
             const observed = await callObservation(usageClient, response, usageMetadata, signal);
             return costToken ? observeCost('response', costToken, observed, signal) ?? observed : observed;
         } catch (error) {
+            try { cacheWarmer?.cancelRequest?.(warmCandidate); } catch {}
             safeCall(() => getCacheBoundary()?.cancelRequest?.(requestMetadata?.cacheBoundaryToken));
             void observePrompt(inspection, dispatched ? 'finishRequest' : 'cancelRequest', { failed: true });
             callFailure(usageClient, error, usageMetadata);
@@ -765,6 +784,7 @@ export function installTauriTransport({
     function destroy() {
         if (destroyed) return;
         destroyed = true;
+        try { cacheWarmer?.stop?.(); } catch {}
         if (target.fetch === targetFetch) target.fetch = originalFetch;
         for (const restore of wrappedServices.splice(0)) restore();
     }

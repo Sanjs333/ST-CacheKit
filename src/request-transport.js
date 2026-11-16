@@ -14,6 +14,7 @@ import {
 import { createGemini4SignatureTracker } from './gemini4-signatures.js';
 import { CACHE_BOUNDARY_FIELD, CACHE_BOUNDARY_STATUS_FIELD } from './cache-prefix-boundary.js';
 import { applySystemPromptPreference } from './system-prompt-settings.js';
+import { CACHE_WARM_FIELD } from './cache-warmer.js';
 
 const REQUEST_STATE = '__vertexPayGoRequestState';
 const GENERATE_PATH = '/api/backends/chat-completions/generate';
@@ -68,7 +69,7 @@ function presetState(context, name) {
 }
 
 export function installRequestTransport({ context, stateProvider, target = globalThis, captureUsageContext = () => null,
-    getUsagePrice = () => null, messageCosts, worldInfoStability, promptInspector, cachePrefixBoundary, ...hookOptions }) {
+    getUsagePrice = () => null, messageCosts, worldInfoStability, promptInspector, cachePrefixBoundary, cacheWarmer, ...hookOptions }) {
     const origin = hookOptions.origin ?? target.location?.origin;
     const originalFetch = target.fetch;
     if (typeof originalFetch !== 'function') throw new TypeError('当前环境缺少 fetch 请求接口。');
@@ -91,6 +92,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
     const destroy = () => {
         if (destroyed) return;
         destroyed = true;
+        try { cacheWarmer?.stop?.(); } catch {}
         for (const restore of restorers.reverse()) try { restore(); } catch { /* Preserve other extensions and release remaining wrappers. */ }
         restorers.length = 0;
         try { signatures.cleanup(); } catch { /* Runtime listeners cannot prevent wrapper restoration. */ }
@@ -162,9 +164,11 @@ export function installRequestTransport({ context, stateProvider, target = globa
         // instead of silently letting a paid request bypass preparation.
         if (typeof rawBody !== 'string') throw new TypeError('[提示词缓存优化] Expected a JSON generation request.');
         const data = JSON.parse(rawBody);
+        const warming = data[CACHE_WARM_FIELD] === true;
+        if (warming) data[REQUEST_STATE] = { background: true, usageChatId: fallbackChatId };
         applySystemPromptPreference(data, target.SillyTavern?.getContext?.() ?? context);
         const hadBoundaryMarker = Object.hasOwn(data, CACHE_BOUNDARY_FIELD) || Object.hasOwn(data, CACHE_BOUNDARY_STATUS_FIELD);
-        delete data[CACHE_BOUNDARY_FIELD];
+        if (!warming) delete data[CACHE_BOUNDARY_FIELD];
         delete data[CACHE_BOUNDARY_STATUS_FIELD];
         const hadInspectorMarker = Object.hasOwn(data, PROMPT_INSPECTOR_FIELD);
         delete data[PROMPT_INSPECTOR_FIELD];
@@ -173,6 +177,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
         let cleanedMacros = false;
         if (Array.isArray(data.messages)) { const cleaned = sanitizeChat(data.messages); cleanedMacros = JSON.stringify(cleaned) !== JSON.stringify(data.messages); data.messages = cleaned; }
         const metadata = data[REQUEST_STATE];
+        if (!warming && metadata?.background !== true) { try { cacheWarmer?.stop?.(); } catch {} }
         try { signal?.throwIfAborted(); } catch (error) {
             try { cachePrefixBoundary?.cancelRequest?.(metadata?.cacheBoundaryToken); } catch {}
             if (metadata?.worldInfoOrderToken) observeOrder('cancelRequest', metadata.worldInfoOrderToken, 'not-sent');
@@ -252,6 +257,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
                 data.native_gemini_api_version = prepared.nativeGeminiApiVersion;
                 requestTarget = getGemini4RequestTarget(input, origin);
                 nativeGemini4 = true;
+                if (warming && prepared.nativeGeminiCacheWarm !== true) throw new Error(hookOptions.localize?.('vertex_paygo.cache_warm.server_upgrade') ?? 'Cache warming requires an updated server plugin.');
             }
             if (costToken) observe('prepared', costToken, prepared?.usageId, {
                 chatId: usageChatId, model: data.model, source: data.chat_completion_source,
@@ -269,6 +275,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
             requestUsage.delete(data);
         }
         let googleDispatched = false;
+        let warmCandidate = null;
         try {
             signal?.throwIfAborted();
             if (metadata?.cacheBoundaryToken) {
@@ -286,9 +293,18 @@ export function installRequestTransport({ context, stateProvider, target = globa
             signal?.throwIfAborted();
             if (costToken) observe('started', costToken);
             googleDispatched = true;
+            if (!warming) {
+                try {
+                    warmCandidate = cacheWarmer?.captureRequest?.(data, (request, warmSignal) => fetchWrapper.call(target, GENERATE_PATH, {
+                        method: 'POST', headers: (target.SillyTavern?.getContext?.() ?? context)?.getRequestHeaders?.() ?? init?.headers,
+                        body: JSON.stringify(request), signal: warmSignal,
+                    }), { background: metadata?.background === true, supported: nativeGemini4 && preparedOrder?.nativeGeminiCacheWarm === true });
+                } catch { /* Optional warming cannot affect the real request. */ }
+            }
             const sending = originalFetch.call(this, requestTarget, { ...init, body: JSON.stringify(data) });
             if (inspection) void observeInspector('markDispatched', inspection);
             let response = await sending;
+            if (warmCandidate) void cacheWarmer.observeResponse(warmCandidate, response).catch(() => {});
             if (metadata?.cacheBoundaryToken && data[CACHE_BOUNDARY_FIELD]) {
                 try { cachePrefixBoundary?.confirmRequest?.(metadata.cacheBoundaryToken, response); } catch {}
             }
@@ -304,6 +320,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
             if (nativeGemini4) response = await localizeGemini4Response(response, hookOptions.localize);
             return costToken ? observe('response', costToken, response, signal) ?? response : response;
         } catch (error) {
+            try { cacheWarmer?.cancelRequest?.(warmCandidate); } catch {}
             try { cachePrefixBoundary?.cancelRequest?.(metadata?.cacheBoundaryToken); } catch {}
             if (costToken) observe('failed', costToken);
             if (worldInfoToken) observeOrder('cancelRequest', worldInfoToken);

@@ -1493,6 +1493,8 @@
 .vertex-paygo-pi-history { display: flex; align-items: center; gap: .6rem; margin-top: .65rem; font-size: .8rem; }
 .vertex-paygo-pi-history select { flex: 1; min-width: 0; margin: 0; font-size: inherit; }
 .vertex-paygo-pi-history[hidden] { display: none; }
+.vertex-paygo-cache-warm-status { justify-content: space-between; margin-top: .45rem; }
+.vertex-paygo-cache-warm-status > small { min-width: 0; font-size: .8rem; }
 .vertex-paygo-prompt-inspector .vertex-paygo-pi-controls .vertex-paygo-icon-button { height: 32px; min-height: 32px; }
 :is(.vertex-paygo-prompt-inspector, .vertex-paygo-log-viewer, .vertex-paygo-log-header) .vertex-paygo-log-tool,
 .vertex-paygo-prompt-inspector .vertex-paygo-pi-icon-action {

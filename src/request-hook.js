@@ -10,6 +10,7 @@ import { AI_STUDIO_SOURCE, isGoogleSource, PROTOCOL_VERSION, VERTEX_SOURCE } fro
 import { getSafeErrorContext } from './client-logger.js';
 import { createLocalizer, localizeError, localizeSupport, localizeValidation } from './i18n.js';
 import { normalizeState, requiresPlugin, validatePluginState } from './state-machine.js';
+import { CACHE_WARM_FIELD } from './cache-warmer.js';
 
 export function createEphemeralSecret() {
     if (globalThis.crypto?.randomUUID) {
@@ -60,6 +61,7 @@ export function buildPreparePayload(generateData, state, upstreamProxy = generat
         chat_completion_source: source,
         model: String(generateData.model ?? '').trim(),
         stream: Boolean(generateData.stream),
+        ...(generateData[CACHE_WARM_FIELD] === true ? { cacheWarm: true } : {}),
         ...(source === AI_STUDIO_SOURCE && upstreamProxy.reverse_proxy ? {
             reverse_proxy: String(upstreamProxy.reverse_proxy).trim(),
             proxy_password: String(upstreamProxy.proxy_password ?? ''),
