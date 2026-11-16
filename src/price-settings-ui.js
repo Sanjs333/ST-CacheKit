@@ -13,9 +13,9 @@ function element(documentRef, tag, className, text) {
     return node;
 }
 
-function choiceLabel(name, value) {
-    if (name === 'source') return ({ vertexai: 'Vertex AI', makersuite: 'Google AI Studio', custom: '自定义' })[value] ?? value;
-    if (name === 'tier') return ({ standard: '标准', flex: 'Flex' })[value] ?? value;
+function choiceLabel(name, value, localize) {
+    if (name === 'source') return ({ vertexai: 'Vertex AI', makersuite: 'Google AI Studio', custom: localize('vertex_paygo.pricing.source_custom') })[value] ?? value;
+    if (name === 'tier' && ['standard', 'flex'].includes(value)) return localize('vertex_paygo.tier.' + value);
     return value;
 }
 
@@ -24,36 +24,35 @@ function readKey(getCurrentPricingKey) {
     return Object.fromEntries(['source', 'model', 'tier'].map(name => [name, String(key[name] ?? '').trim()]));
 }
 
-export function createPriceSettingsUi({ documentRef = globalThis.document,
+export function createPriceSettingsUi({ documentRef = globalThis.document, context,
     getCurrentPricingKey, getPrices = () => ({}), getPriceInfo = () => ({ source: 'missing' }),
-    setPrice, resetPrice, refreshCatalog, onChange } = {}) {
+    setPrice, resetPrice, refreshCatalog, onChange,
+    localize = createLocalizer((fallback, key) => context?.translate?.(fallback, key)) } = {}) {
+    const t = (key, values) => localize('vertex_paygo.pricing.' + key, values);
     const pricing = element(documentRef, 'section', 'vertex-paygo-cost-pricing');
     pricing.id = 'vertex-paygo-pricing-settings';
     const feedback = element(documentRef, 'p', 'vertex-paygo-cost-feedback');
     feedback.setAttribute('aria-live', 'polite');
     const note = element(documentRef, 'p', 'vertex-paygo-cost-pricing-note');
-    pricing.append(element(documentRef, 'h4', 'vertex-paygo-group-title', '价格设置（美元 / 百万 token）'), note);
+    pricing.append(element(documentRef, 'h4', 'vertex-paygo-group-title', t('title')), note);
     const form = element(documentRef, 'form', 'vertex-paygo-cost-price-form');
     const priceMeta = element(documentRef, 'p', 'vertex-paygo-cost-price-meta');
-    const keyFields = { source: '来源', model: '模型', tier: '服务层级' };
+    const keyFields = { source: t('source'), model: t('model'), tier: t('tier') };
     const priceFields = {
-        input: '输入', cachedInput: '缓存输入', output: '输出',
-        longContextThreshold: '长上下文阈值（token）', longInput: '长上下文输入',
-        longCachedInput: '长上下文缓存输入', longOutput: '长上下文输出',
+        input: t('input'), cachedInput: t('cached_input'), output: t('output'),
+        longContextThreshold: t('long_threshold'), longInput: t('long_input'),
+        longCachedInput: t('long_cached_input'), longOutput: t('long_output'),
     };
     const inputs = {};
     const keyRows = {};
     const tierFixed = element(documentRef, 'span', 'vertex-paygo-cost-tier-value');
     let currentKey = readKey(getCurrentPricingKey);
     const nativeSource = () => isGoogleSource(currentKey.source);
-    const fallbackLocalize = createLocalizer();
-    const localize = key => ({ 'vertex_paygo.tier.standard': '标准', 'vertex_paygo.tier.unverified': '未验证', 'vertex_paygo.tier.choose_supported': '请选择支持的层级' })[key] ?? fallbackLocalize(key);
     for (const [name, caption] of Object.entries(keyFields)) {
         const row = element(documentRef, name === 'tier' ? 'label' : 'div', 'vertex-paygo-cost-field');
         const label = element(documentRef, 'span', '', caption);
         label.title = name === 'tier'
-            ? '仅选择对应服务层级的计价单价，不会更改实际请求层级。'
-            : '跟随酒馆 API 界面的当前连接；请到 API 界面更改来源或模型。';
+            ? t('tier_hint') : t('connection_hint');
         const input = element(documentRef, name === 'tier' ? 'select' : 'span',
             name === 'tier' ? 'text_pole' : 'vertex-paygo-cost-' + name + '-value');
         if (name !== 'tier') {
@@ -62,7 +61,7 @@ export function createPriceSettingsUi({ documentRef = globalThis.document,
         } else {
             input.setAttribute('name', name);
             for (const value of ['standard', 'flex']) {
-                const option = element(documentRef, 'option', '', choiceLabel(name, value));
+                const option = element(documentRef, 'option', '', choiceLabel(name, value, localize));
                 option.value = value;
                 input.append(option);
             }
@@ -87,12 +86,12 @@ export function createPriceSettingsUi({ documentRef = globalThis.document,
         priceInputs[name] = input;
     }
     const actions = element(documentRef, 'div', 'vertex-paygo-cost-price-actions');
-    const save = element(documentRef, 'button', 'menu_button', '保存');
+    const save = element(documentRef, 'button', 'menu_button', t('save'));
     save.setAttribute('type', 'submit');
-    const reset = element(documentRef, 'button', 'menu_button', '清除');
+    const reset = element(documentRef, 'button', 'menu_button', t('clear'));
     reset.setAttribute('type', 'button');
     const catalogRefresh = element(documentRef, 'button', 'menu_button vertex-paygo-icon-button');
-    catalogRefresh.title = '更新支持列表和价格';
+    catalogRefresh.title = t('refresh');
     catalogRefresh.setAttribute('aria-label', catalogRefresh.title);
     const refreshIcon = element(documentRef, 'i', 'fa-solid fa-rotate');
     refreshIcon.setAttribute('aria-hidden', 'true');
@@ -112,11 +111,11 @@ export function createPriceSettingsUi({ documentRef = globalThis.document,
     // Kept for the cost-window integration; records/catalog entries no longer
     // populate an editable model/source picker or replace user-edited rates.
     function updateKeyLists() {
-        const caption = choiceLabel('source', currentKey.source) || '未连接';
+        const caption = choiceLabel('source', currentKey.source, localize) || t('unconnected');
         inputs.source.textContent = caption;
         inputs.source.title = caption;
         inputs.source.setAttribute('data-pricing-source', currentKey.source);
-        inputs.source.setAttribute('aria-label', '当前来源：' + caption);
+        inputs.source.setAttribute('aria-label', t('current_source', { value: caption }));
     }
     function renderSourceState() {
         if (nativeSource()) {
@@ -125,21 +124,21 @@ export function createPriceSettingsUi({ documentRef = globalThis.document,
             replaceTierOptions(inputs.tier, choices, { selected: choices.some(choice => choice.tier === selected) ? selected : 'standard', localize, documentRef });
             inputs.tier.hidden = choices.length === 1;
             tierFixed.hidden = choices.length !== 1;
-            tierFixed.textContent = choiceLabel('tier', choices[0]?.tier ?? 'standard');
+            tierFixed.textContent = choiceLabel('tier', choices[0]?.tier ?? 'standard', localize);
         }
         keyRows.tier.hidden = !nativeSource();
         inputs.tier.disabled = !nativeSource();
         if (!currentKey.source) {
-            note.textContent = '请先在酒馆 API 界面选择连接与模型，再设置当前模型的价格表。';
+            note.textContent = t('note_unconnected');
         } else if (currentKey.source === 'vertexai') {
-            note.textContent = '自动价格为公开付费文本单价；Vertex 按 Global 基础价。地区差价、免费额度和账户折扣请手动调整。';
+            note.textContent = t('note_vertex');
         } else if (currentKey.source === 'makersuite') {
-            note.textContent = '自动价格为 Google AI Studio 的公开付费文本单价；免费额度和账户折扣请手动调整。';
+            note.textContent = t('note_studio');
         } else {
-            note.textContent = '为当前使用渠道设置当前模型的价格表；此处仅保存单价，当前渠道的用量采集尚未接入。';
+            note.textContent = t('note_other');
         }
-        reset.textContent = '清除';
-        reset.title = nativeSource() ? '清除手动单价，恢复自动价格' : '清除当前模型的手动价格';
+        reset.textContent = t('clear');
+        reset.title = t(nativeSource() ? 'clear_auto' : 'clear_manual');
         reset.disabled = typeof resetPrice !== 'function' || !currentKey.source || !currentKey.model;
         catalogRefresh.hidden = !nativeSource();
         catalogRefresh.disabled = !nativeSource() || typeof refreshCatalog !== 'function';
@@ -148,14 +147,14 @@ export function createPriceSettingsUi({ documentRef = globalThis.document,
     function renderPriceMeta() {
         const info = getPriceInfo?.(selectedKeyObject()) ?? { source: 'missing' };
         const labels = nativeSource()
-            ? { manual: '手动价格', catalog: '自动价格', missing: '当前渠道尚未设置价格' }
-            : { manual: '手动价格', catalog: '参考价格', missing: '当前渠道尚未设置价格' };
+            ? { manual: t('manual'), catalog: t('catalog'), missing: t('missing') }
+            : { manual: t('manual'), catalog: t('reference'), missing: t('missing') };
         const parts = [labels[info.source] ?? labels.missing];
-        if (nativeSource() && info.updatedAt) parts.push(`${info.source === 'missing' ? '价格表更新' : '核验'} ${info.updatedAt}`);
-        if (nativeSource() && info.validUntil) parts.push(`有效至 ${info.validUntil}`);
+        if (nativeSource() && info.updatedAt) parts.push(t(info.source === 'missing' ? 'catalog_updated' : 'verified', { date: info.updatedAt }));
+        if (nativeSource() && info.validUntil) parts.push(t('valid_until', { date: info.validUntil }));
         priceMeta.replaceChildren(element(documentRef, 'span', '', parts.join(' · ')));
         if (nativeSource() && typeof info.sourceUrl === 'string' && info.sourceUrl.startsWith('https://')) {
-            const link = element(documentRef, 'a', '', '官方来源');
+            const link = element(documentRef, 'a', '', t('official_source'));
             link.href = info.sourceUrl;
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
@@ -172,9 +171,9 @@ export function createPriceSettingsUi({ documentRef = globalThis.document,
         updateKeyLists();
         for (const [name, input] of Object.entries(inputs)) {
             if (name === 'model') {
-                input.textContent = currentKey.model || '未选择模型';
+                input.textContent = currentKey.model || t('select_model');
                 input.title = currentKey.model;
-                input.setAttribute('aria-label', currentKey.model ? '当前模型：' + currentKey.model : '未选择模型');
+                input.setAttribute('aria-label', currentKey.model ? t('current_model', { value: currentKey.model }) : t('select_model'));
             } else if (name === 'tier') input.value = currentKey[name];
         }
         renderSourceState();
@@ -188,7 +187,7 @@ export function createPriceSettingsUi({ documentRef = globalThis.document,
     }
     function checkTargetBeforeWrite() {
         if (!syncIfConnectionChanged()) return true;
-        feedback.textContent = '当前连接已变化，价格页已更新；请确认当前模型的价格后重新操作。';
+        feedback.textContent = t('connection_changed');
         feedback.dataset.state = 'error';
         return false;
     }
@@ -200,19 +199,19 @@ export function createPriceSettingsUi({ documentRef = globalThis.document,
         const raw = Object.fromEntries(Object.entries(priceInputs).map(([name, input]) => [name, input.value]));
         const price = normalizePrice(raw);
         if (!key.source || !key.model || !key.tier || !price) {
-            feedback.textContent = '请先在酒馆 API 界面选择连接与模型，再填写非负的输入/缓存/输出价格；长上下文价格须成组填写。';
+            feedback.textContent = t('invalid_price');
             feedback.dataset.state = 'error';
             return;
         }
         try {
-            if (typeof setPrice !== 'function') throw new Error('价格保存接口不可用');
+            if (typeof setPrice !== 'function') throw new Error(t('save_unavailable'));
             await setPrice(key, price);
-            feedback.textContent = '价格已保存。';
+            feedback.textContent = t('saved');
             feedback.dataset.state = 'success';
             if (!syncIfConnectionChanged()) loadSelectedPrice();
             await onChange?.();
         } catch (error) {
-            feedback.textContent = `保存失败：${error instanceof Error ? error.message : String(error)}`;
+            feedback.textContent = t('save_failed', { error: error instanceof Error ? error.message : String(error) });
             feedback.dataset.state = 'error';
         }
     });
@@ -221,14 +220,14 @@ export function createPriceSettingsUi({ documentRef = globalThis.document,
         const wasNative = nativeSource();
         reset.disabled = true;
         try {
-            if (typeof resetPrice !== 'function') throw new Error('价格清除接口不可用');
+            if (typeof resetPrice !== 'function') throw new Error(t('clear_unavailable'));
             await resetPrice(selectedKeyObject());
             if (!syncIfConnectionChanged()) loadSelectedPrice();
-            feedback.textContent = wasNative ? '已恢复自动价格。' : '已清除手动价格。';
+            feedback.textContent = t(wasNative ? 'automatic_restored' : 'manual_cleared');
             feedback.dataset.state = 'success';
             await onChange?.();
         } catch (error) {
-            feedback.textContent = `操作失败：${error instanceof Error ? error.message : String(error)}`;
+            feedback.textContent = t('operation_failed', { error: error instanceof Error ? error.message : String(error) });
             feedback.dataset.state = 'error';
         } finally { renderSourceState(); }
     });
@@ -238,17 +237,17 @@ export function createPriceSettingsUi({ documentRef = globalThis.document,
         try {
             const result = await refreshCatalog();
             if (!result?.applied) {
-                feedback.textContent = `更新失败，已保留现有价格${result?.error ? `：${result.error}` : '。'}`;
+                feedback.textContent = result?.error ? t('refresh_failed_detail', { error: String(result.error) }) : t('refresh_failed');
                 feedback.dataset.state = 'error';
                 return;
             }
             updateKeyLists();
             if (!syncIfConnectionChanged()) loadSelectedPrice();
-            feedback.textContent = result.changed ? '支持列表和价格已更新。' : '支持列表和价格已是最新。';
+            feedback.textContent = t(result.changed ? 'catalog_changed' : 'catalog_current');
             feedback.dataset.state = 'success';
             await onChange?.();
         } catch (error) {
-            feedback.textContent = `更新失败，已保留现有价格：${error instanceof Error ? error.message : String(error)}`;
+            feedback.textContent = t('refresh_failed_detail', { error: error instanceof Error ? error.message : String(error) });
             feedback.dataset.state = 'error';
         } finally { renderSourceState(); }
     });

@@ -5,11 +5,11 @@
 // source. Each feature mounts into its own tab so the drawer stays short on
 // phones, while every section keeps its own controls and listeners.
 import { bindExtensionTheme } from './theme.js';
-import { EXTENSION_DISPLAY_NAME } from './constants.js';
 import { isolatePanelEvents } from './panel-events.js';
+import { createLocalizer } from './i18n.js';
 
-export const SETTINGS_TABS = Object.freeze(['general', 'cache', 'pricing', 'logs']);
-const TAB_ICONS = Object.freeze({ general: 'fa-sliders', cache: 'fa-layer-group', pricing: 'fa-coins', logs: 'fa-file-lines' });
+export const SETTINGS_TABS = Object.freeze(['general', 'cache', 'pricing', 'billing', 'logs']);
+const TAB_ICONS = Object.freeze({ general: 'fa-sliders', cache: 'fa-layer-group', pricing: 'fa-coins', billing: 'fa-file-invoice-dollar', logs: 'fa-file-lines' });
 const TAB_STORAGE_KEY = 'vertex-paygo-settings-tab';
 const ROOT_ID = 'vertex-paygo-extension-settings';
 const CONTENT_ID = 'vertex-paygo-extension-settings-content';
@@ -90,15 +90,17 @@ function setOpen(shell, open) {
 }
 
 function createShell(documentRef, host) {
+    const localize = createLocalizer((fallback, key) => globalThis.SillyTavern?.getContext?.()?.translate?.(fallback, key));
+    const titleText = localize('vertex_paygo.settings.title');
     const root = make(documentRef, 'div', { id: ROOT_ID, class: 'inline-drawer vertex-paygo-shell' });
     const header = make(documentRef, 'div', { id: `${ROOT_ID}-header`, class: 'inline-drawer-toggle inline-drawer-header',
         role: 'button', tabindex: '0', 'aria-expanded': 'false', 'aria-controls': CONTENT_ID });
-    const title = make(documentRef, 'b', { class: 'vertex-paygo-shell-title' }, EXTENSION_DISPLAY_NAME);
+    const title = make(documentRef, 'b', { class: 'vertex-paygo-shell-title' }, titleText);
     const icon = make(documentRef, 'div', { class: 'inline-drawer-icon fa-solid fa-circle-chevron-down down', 'aria-hidden': 'true' });
     header.append(title, icon);
     const content = make(documentRef, 'div', { id: CONTENT_ID, class: 'inline-drawer-content vertex-paygo-shell-content' });
     content.hidden = true;
-    const tablist = make(documentRef, 'div', { class: 'vertex-paygo-tabs', role: 'tablist', 'aria-label': EXTENSION_DISPLAY_NAME });
+    const tablist = make(documentRef, 'div', { class: 'vertex-paygo-tabs', role: 'tablist', 'aria-label': titleText });
     tablist.hidden = true;
     content.append(tablist);
     root.append(header, content);
@@ -180,7 +182,11 @@ function ensureTab(shell, tab, label) {
  *   `onShow` runs whenever the section's tab becomes visible.
  * @returns {() => void} Unmounts the section; the drawer disappears with its last section.
  */
-export function mountExtensionSettings(section, { documentRef = globalThis.document, tab = 'general', label = tab, onShow } = {}) {
+export function mountExtensionSettings(section, { documentRef = globalThis.document, tab = 'general', label, onShow } = {}) {
+    if (!label) {
+        const localize = createLocalizer((fallback, key) => globalThis.SillyTavern?.getContext?.()?.translate?.(fallback, key));
+        label = SETTINGS_TABS.includes(tab) ? localize('vertex_paygo.settings.tab.' + tab) : tab;
+    }
     const host = documentRef.getElementById('extensions_settings2')
         ?? documentRef.getElementById('extensions_settings');
     if (!host) throw new Error('扩展设置不可用。');

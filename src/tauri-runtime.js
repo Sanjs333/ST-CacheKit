@@ -143,7 +143,7 @@ export async function initTauriTavern({ target = globalThis, documentRef = targe
             onChange: () => messageCostUi.render(),
         });
         messageCostUi.render();
-        costUi = (factories.costUi ?? createCostUi)({ context, serverClient: usage, documentRef,
+        costUi = (factories.costUi ?? createCostUi)({ context, serverClient: usage, documentRef, localize,
             getChatId: costs.getChatId, getPrices: costs.getPrices, getPriceInfo: costs.getPriceInfo,
             setPrice: costs.setPrice, resetPrice: costs.resetPrice, refreshCatalog,
             getCurrentPricingKey: controller.getPricingKey,
@@ -151,9 +151,9 @@ export async function initTauriTavern({ target = globalThis, documentRef = targe
         });
         try {
             cacheDiagnosticsUi = (factories.cacheDiagnosticsUi ?? createCacheDiagnosticsUi)({ context,
-                serverClient: usage, getChatId: costs.getChatId, documentRef,
-                coverageSummary: 'TT 记录普通聊天与兼容前端的 Google 请求，原生 Agent 回合未计入。',
-                coverageNotice: 'TT 当前聊天中由插件采集的普通与兼容前端 Google 逻辑请求，不含原生 Agent 内部模型回合。结构摘要来自前端，宿主可能继续转换或发送多个子请求；未核验逐字节 Google 请求。仅保留长度、指纹和参数摘要，不含提示词正文。' });
+                serverClient: usage, getChatId: costs.getChatId, documentRef, localize,
+            coverageSummary: localize('vertex_paygo.cache_diagnostics.tt_summary'),
+            coverageNotice: localize('vertex_paygo.cache_diagnostics.tt_notice') });
         } catch {
             console.warn('[提示词缓存优化] Tauri cache diagnostics are unavailable.');
         }
@@ -172,7 +172,7 @@ export async function initTauriTavern({ target = globalThis, documentRef = targe
         try {
             const createCacheTools = factories.cacheTools
                 ?? (await import('./tauri-cache-tools.js')).createTauriCacheTools;
-            cacheTools = await createCacheTools({ context, getContext, documentRef,
+            cacheTools = await createCacheTools({ context, getContext, documentRef, localize,
                 createMigration: factories.promptMigration,
                 loadOpenAi: factories.loadOpenAi, loadRegex: factories.loadRegex,
                 loadScript: factories.loadScript, loadUtils: factories.loadUtils, loadConstants: factories.loadConstants });

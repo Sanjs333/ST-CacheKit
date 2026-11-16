@@ -149,11 +149,11 @@ export async function init() {
         });
         await waitForVertexControls(10_000, localize);
         gemini4Host = await installGemini4HostCompatibility({ context });
-        try { systemPromptSettings = createSystemPromptSettings({ getContext: () => globalThis.SillyTavern.getContext() }); }
+        try { systemPromptSettings = createSystemPromptSettings({ getContext: () => globalThis.SillyTavern.getContext(), localize }); }
         catch { console.warn('[提示词缓存优化] System prompt settings are unavailable.'); }
 
         costContext = createCostContext({ getContext: () => globalThis.SillyTavern.getContext() });
-        try { billingUi = createBillingUi({ context, serverClient, getChatId: costContext.getChatId }); }
+        try { billingUi = createBillingUi({ context, serverClient, getChatId: costContext.getChatId, localize }); }
         catch { console.warn('[提示词缓存优化] Billing settings are unavailable.'); }
         controller = createPayGoUi({
             context,
@@ -211,7 +211,7 @@ export async function init() {
             cachePrefixBoundary = createCachePrefixBoundary({ getContext: () => globalThis.SillyTavern.getContext(),
                 onChange: () => cachePrefixBoundarySettings?.render() });
             cachePrefixBoundarySettings = createCachePrefixBoundarySettings({ boundary: cachePrefixBoundary,
-                getContext: () => globalThis.SillyTavern.getContext() });
+                getContext: () => globalThis.SillyTavern.getContext(), localize });
         } catch { console.warn('[提示词缓存优化] Source-backed prefix boundary is unavailable.'); }
         try {
             promptMigration = await installPromptMigrationRuntime({ context, stability: worldInfoStability,
@@ -225,7 +225,7 @@ export async function init() {
         }
         try {
             const feature = worldInfoStability ?? { snapshot: () => ({ supported: false, enabled: false }), setEnabled: () => false };
-            worldInfoStabilityUi = createWorldInfoStabilityUi({ feature, migration: promptMigration });
+            worldInfoStabilityUi = createWorldInfoStabilityUi({ feature, migration: promptMigration, localize });
         } catch {
             console.warn('[提示词缓存优化] Cache settings are unavailable.');
         }

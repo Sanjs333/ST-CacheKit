@@ -1,4 +1,12 @@
 /* SPDX-License-Identifier: MPL-2.0 */
+import { createLocalizer } from './i18n.js';
+
+function invalidBilling(key, localize) {
+    const translationKey = 'vertex_paygo.billing.' + key;
+    const error = new Error(localize(translationKey));
+    error.translationKey = translationKey;
+    throw error;
+}
 export function billingDate(now = new Date()) {
     const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
     const value = key => parts.find(part => part.type === key)?.value;
@@ -36,17 +44,17 @@ export function billingExportDate(value) {
 export const BILLING_SETTINGS_DEFAULTS = Object.freeze({ version: 1, enabled: false, queryProject: '', datasetProject: '', dataset: '', table: '', projectFilter: '', location: 'US', secretId: '', labelMode: 'off' });
 
 /** Reject an incomplete read instead of turning a damaged response into a blank save. */
-export function billingSettings(value) {
+export function billingSettings(value, localize = createLocalizer()) {
     if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.enabled !== 'boolean'
         || !['off', 'chat', 'request'].includes(value.labelMode)
         || !['queryProject', 'dataset', 'table'].every(key => typeof value[key] === 'string')) {
-        throw new Error('账单设置响应不完整，请重新读取。');
+        invalidBilling('error_settings_incomplete', localize);
     }
     const projected = { ...BILLING_SETTINGS_DEFAULTS };
     for (const key of Object.keys(projected)) {
         if (key === 'version') continue;
         if (value[key] !== undefined) {
-            if (typeof value[key] !== typeof projected[key]) throw new Error('账单设置响应格式无效，请重新读取。');
+            if (typeof value[key] !== typeof projected[key]) invalidBilling('error_settings_invalid', localize);
             projected[key] = value[key];
         }
     }
@@ -64,27 +72,27 @@ function validDate(value) {
 }
 
 /** Build exactly the requested scope; a request ID is independent of the open chat. */
-export function billingQuery({ startDate, endDate, scope = 'project', chatId, requestId } = {}) {
-    if (!validDate(startDate) || !validDate(endDate)) throw new Error('请选择有效的账单开始和结束日期。');
+export function billingQuery({ startDate, endDate, scope = 'project', chatId, requestId } = {}, localize = createLocalizer()) {
+    if (!validDate(startDate) || !validDate(endDate)) invalidBilling('error_dates', localize);
     const span = (Date.parse(endDate) - Date.parse(startDate)) / 86400000;
-    if (span < 0 || span > 30) throw new Error('结束日期不能早于开始日期，查询范围最多 31 天。');
-    if (!['project', 'chat', 'request'].includes(scope)) throw new Error('请选择有效的账单查询范围。');
+    if (span < 0 || span > 30) invalidBilling('error_date_range', localize);
+    if (!['project', 'chat', 'request'].includes(scope)) invalidBilling('error_scope', localize);
     const query = { startDate, endDate };
     const identifier = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value);
     if (scope === 'chat') {
-        if (!identifier(chatId)) throw new Error('请先打开已有请求记录的聊天。');
+        if (!identifier(chatId)) invalidBilling('error_chat', localize);
         query.chatId = chatId;
     }
     if (scope === 'request') {
-        if (typeof requestId !== 'string' || !/^[a-z0-9_-]{1,63}$/.test(requestId)) throw new Error('请输入有效的请求 ID（小写字母、数字、下划线或连字符，最多 63 字符）。');
+        if (typeof requestId !== 'string' || !/^[a-z0-9_-]{1,63}$/.test(requestId)) invalidBilling('error_request_id', localize);
         query.requestId = requestId;
     }
     return query;
 }
 
 /** Only billing export rows feed the actual-cost UI; estimate records cannot enter it. */
-export function billingRows(value) {
-    if (value?.ok !== true || value.kind !== 'billing-export' || !Array.isArray(value.rows)) throw new Error('实际账单响应格式无效。');
+export function billingRows(value, localize = createLocalizer()) {
+    if (value?.ok !== true || value.kind !== 'billing-export' || !Array.isArray(value.rows)) invalidBilling('error_response', localize);
     return value.rows.slice(0, 1000).filter(row => row && typeof row === 'object' && !Array.isArray(row)).map(row => ({
         day: validDate(row.day) ? row.day : null,
         currency: typeof row.currency === 'string' && /^[A-Z]{3}$/.test(row.currency) ? row.currency : null,

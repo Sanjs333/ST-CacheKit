@@ -1,32 +1,35 @@
 /* Local cache diagnostics presentation; SPDX-License-Identifier: MPL-2.0 */
 import { CACHE_POLICY_REVIEWED_AT, CACHE_POLICY_URLS } from './cache-diagnostics-policy.js';
 import { formatCacheHitRate } from './cost-model.js';
-
-const number = value => value === null || value === undefined ? '未知' : value.toLocaleString('zh-CN');
-const cacheRate = value => formatCacheHitRate(value, '未知');
-const CONFIDENCE_LABELS = { observed: '检测到', possible: '可能', unknown: '信息不足' };
-const ROLE_LABELS = { system: '系统', user: '用户', model: '助手', tool: '工具', unknown: '未知身份' };
-const SOURCE_LABELS = { vertexai: 'Vertex AI', makersuite: 'Google AI Studio' };
-const STATUS_LABELS = { pending: '生成中', complete: '完成', incomplete: '中断', failed: '失败', unknown: '未知' };
-const time = value => {
-    const date = new Date(value);
-    return Number.isFinite(date.getTime()) ? date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : value;
-};
-const interval = value => {
-    if (value === null) return '未知';
-    if (value < 1000) return '不足 1 秒';
-    const seconds = Math.floor(value / 1000);
-    if (seconds < 60) return `${seconds} 秒`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes} 分 ${seconds % 60} 秒`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} 小时 ${minutes % 60} 分`;
-    return `${Math.floor(hours / 24)} 天 ${hours % 24} 小时`;
-};
+import { createLocalizer } from './i18n.js';
 
 export function createCacheDiagnosticsViewer({ documentRef = globalThis.document, onRefresh, onSelect, onClose,
-    coverageNotice = '', coverageSummary = '' }) {
+    coverageNotice = '', coverageSummary = '', localize = createLocalizer() }) {
+    const t = localize;
+    const number = value => value === null || value === undefined ? t("vertex_paygo.cache_diagnostics.unknown") : value.toLocaleString(undefined);
+    const cacheRate = value => formatCacheHitRate(value, t("vertex_paygo.cache_diagnostics.unknown"));
+    const CONFIDENCE_LABELS = { observed: t("vertex_paygo.cache_diagnostics.observed"), possible: t("vertex_paygo.cache_diagnostics.possible"), unknown: t("vertex_paygo.cache_diagnostics.insufficient") };
+    const ROLE_LABELS = { system: t("vertex_paygo.cache_diagnostics.role_system"), user: t("vertex_paygo.cache_diagnostics.role_user"), model: t("vertex_paygo.cache_diagnostics.role_model"), tool: t("vertex_paygo.cache_diagnostics.role_tool"), unknown: t("vertex_paygo.cache_diagnostics.role_unknown") };
+    const SOURCE_LABELS = { vertexai: 'Vertex AI', makersuite: 'Google AI Studio' };
+    const STATUS_LABELS = { pending: t("vertex_paygo.cache_diagnostics.status_pending"), complete: t("vertex_paygo.cache_diagnostics.status_complete"), incomplete: t("vertex_paygo.cache_diagnostics.status_incomplete"), failed: t("vertex_paygo.cache_diagnostics.status_failed"), unknown: t("vertex_paygo.cache_diagnostics.unknown") };
+    const time = value => {
+        const date = new Date(value);
+        return Number.isFinite(date.getTime()) ? date.toLocaleString(undefined, { month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : value;
+    };
+    const interval = value => {
+        if (value === null) return t("vertex_paygo.cache_diagnostics.unknown");
+        if (value < 1000) return t("vertex_paygo.cache_diagnostics.interval_short");
+        const seconds = Math.floor(value / 1000);
+        if (seconds < 60) return t("vertex_paygo.cache_diagnostics.interval_seconds", { p0: seconds });
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return t("vertex_paygo.cache_diagnostics.interval_minutes", { p0: minutes, p1: seconds % 60 });
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return t("vertex_paygo.cache_diagnostics.interval_hours", { p0: hours, p1: minutes % 60 });
+        return t("vertex_paygo.cache_diagnostics.interval_days", { p0: Math.floor(hours / 24), p1: hours % 24 });
+    };
+
+
     const make = (tag, className = '', value, attributes = {}) => {
         const node = documentRef.createElement(tag);
         if (className) node.className = className;
@@ -52,19 +55,19 @@ export function createCacheDiagnosticsViewer({ documentRef = globalThis.document
         details.append(summary); return details;
     };
     const root = make('section', 'vertex-paygo-log-viewer vertex-paygo-cache-viewer', undefined,
-        { 'aria-label': 'Google 请求与缓存诊断' });
+        { 'aria-label': t("vertex_paygo.cache_diagnostics.title") });
     const header = make('header', 'vertex-paygo-log-header');
     const heading = make('div', 'vertex-paygo-log-heading-row');
     const tools = make('div', 'vertex-paygo-log-tools');
-    const refresh = iconButton('刷新本地记录', 'fa-rotate-right', 'refresh');
+    const refresh = iconButton(t("vertex_paygo.cache_diagnostics.refresh"), 'fa-rotate-right', 'refresh');
     refresh.id = 'vertex-paygo-cache-diagnostics-refresh';
-    const close = iconButton('关闭缓存诊断', 'fa-xmark', 'close');
+    const close = iconButton(t("vertex_paygo.cache_diagnostics.close"), 'fa-xmark', 'close');
     close.classList.add('vertex-paygo-log-close');
-    tools.append(refresh, close); heading.append(make('h3', '', 'Google 请求与缓存诊断'), tools);
-    const selector = make('select', 'text_pole', undefined, { id: 'vertex-paygo-cache-diagnostics-select', 'aria-label': '选择请求记录' });
+    tools.append(refresh, close); heading.append(make('h3', '', t("vertex_paygo.cache_diagnostics.title")), tools);
+    const selector = make('select', 'text_pole', undefined, { id: 'vertex-paygo-cache-diagnostics-select', 'aria-label': t("vertex_paygo.cache_diagnostics.select_label") });
     const selectLabel = make('label', 'vertex-paygo-cache-selector');
-    selectLabel.append(make('span', '', '查看请求'), selector);
-    header.append(heading, make('p', 'vertex-paygo-log-description', '查看当前聊天的缓存用量、稳定系统提示与实际请求变化。'), selectLabel);
+    selectLabel.append(make('span', '', t("vertex_paygo.cache_diagnostics.view_request")), selector);
+    header.append(heading, make('p', 'vertex-paygo-log-description', t("vertex_paygo.cache_diagnostics.description")), selectLabel);
     if (coverageSummary) header.append(make('p', 'vertex-paygo-cache-note', coverageSummary));
     const body = make('div', 'vertex-paygo-cache-viewer-body', undefined, { tabindex: '0' });
     const status = make('p', 'vertex-paygo-log-empty', '', { 'aria-live': 'polite' });
@@ -72,51 +75,51 @@ export function createCacheDiagnosticsViewer({ documentRef = globalThis.document
     const metadata = make('p', 'vertex-paygo-cache-request-meta');
     const metrics = make('div', 'vertex-paygo-cache-metrics', undefined, { id: 'vertex-paygo-cache-diagnostics-usage' });
     const values = new Map();
-    for (const [id, label, unit] of [['input', '输入量', 'tokens'], ['cached', '缓存量', 'tokens'], ['rate', '缓存命中比例', '']]) {
+    for (const [id, label, unit] of [['input', t("vertex_paygo.cache_diagnostics.input"), 'tokens'], ['cached', t("vertex_paygo.cache_diagnostics.cached"), 'tokens'], ['rate', t("vertex_paygo.cache_diagnostics.hit_rate"), '']]) {
         const metric = make('div', 'vertex-paygo-cache-metric');
-        const value = make('strong', '', '未知', { 'data-cache-metric': id }); values.set(id, value);
+        const value = make('strong', '', t("vertex_paygo.cache_diagnostics.unknown"), { 'data-cache-metric': id }); values.set(id, value);
         const valueRow = make('div', 'vertex-paygo-cache-metric-value');
         valueRow.append(value); if (unit) valueRow.append(make('small', '', unit));
         metric.append(make('span', 'vertex-paygo-cache-metric-label', label), valueRow); metrics.append(metric);
     }
-    const progress = make('progress', 'vertex-paygo-cache-progress', undefined, { max: '1', 'aria-label': '缓存占输入的比例' });
+    const progress = make('progress', 'vertex-paygo-cache-progress', undefined, { max: '1', 'aria-label': t("vertex_paygo.cache_diagnostics.progress_label") });
     const warning = make('p', 'vertex-paygo-cache-warning', '', { 'data-cache-warning': '' });
     const multi = make('p', 'vertex-paygo-cache-note', '', { 'data-cache-subrequests': '' });
     const analysis = make('section', 'vertex-paygo-cache-analysis', undefined,
-        { id: 'vertex-paygo-cache-diagnostics-analysis', 'aria-label': '缓存命中原因分析' });
+        { id: 'vertex-paygo-cache-diagnostics-analysis', 'aria-label': t("vertex_paygo.cache_diagnostics.analysis_label") });
     const analysisSummary = make('p', 'vertex-paygo-cache-analysis-summary');
     const reference = make('p', 'vertex-paygo-cache-note', '', { 'data-cache-reference': '' });
     const findings = make('ul', 'vertex-paygo-cache-findings');
     const analysisNote = make('p', 'vertex-paygo-cache-note', '', { 'data-cache-analysis-note': '' });
-    analysis.append(make('h4', '', '缓存用量与请求变化'), analysisSummary, reference, findings, analysisNote);
-    const advanced = disclosure('请求结构与前后比较');
+    analysis.append(make('h4', '', t("vertex_paygo.cache_diagnostics.analysis_title")), analysisSummary, reference, findings, analysisNote);
+    const advanced = disclosure(t("vertex_paygo.cache_diagnostics.structure_title"));
     const structure = make('p', 'vertex-paygo-cache-note', '', { id: 'vertex-paygo-cache-diagnostics-structure' });
     const comparison = make('p', 'vertex-paygo-cache-note', '', { id: 'vertex-paygo-cache-diagnostics-comparison' });
-    const comparisonNote = make('p', 'vertex-paygo-cache-note', '比较以完整消息块为单位；相同块数为 0 时仍可能存在相同文本前缀。');
+    const comparisonNote = make('p', 'vertex-paygo-cache-note', t("vertex_paygo.cache_diagnostics.block_prefix_note"));
     const blockWrap = make('div', 'vertex-paygo-cost-table-wrap');
-    const blockTable = make('table', 'vertex-paygo-cost-table', undefined, { 'aria-label': '请求消息块对应关系' });
+    const blockTable = make('table', 'vertex-paygo-cost-table', undefined, { 'aria-label': t("vertex_paygo.cache_diagnostics.block_table") });
     const blockHead = make('thead'), blockHeadRow = make('tr');
-    for (const label of ['参考块', '本轮块', '对应情况', '文本长度（字符）']) blockHeadRow.append(make('th', '', label));
+    for (const label of [t("vertex_paygo.cache_diagnostics.previous_block"), t("vertex_paygo.cache_diagnostics.current_block"), t("vertex_paygo.cache_diagnostics.correspondence"), t("vertex_paygo.cache_diagnostics.text_length")]) blockHeadRow.append(make('th', '', label));
     blockHead.append(blockHeadRow);
     const blockRows = make('tbody'); blockTable.append(blockHead, blockRows); blockWrap.append(blockTable);
-    const blockNote = make('p', 'vertex-paygo-cache-note', '相同块按内容指纹对齐；变化块只按位置比较。“未配对”可能来自隐藏、合并或内容变化，不能直接认定消息被删除。');
+    const blockNote = make('p', 'vertex-paygo-cache-note', t("vertex_paygo.cache_diagnostics.alignment_note"));
     const prefixStatus = make('p', 'vertex-paygo-cache-note');
     const segmentWrap = make('div', 'vertex-paygo-cost-table-wrap');
-    const segmentTable = make('table', 'vertex-paygo-cost-table', undefined, { 'aria-label': '稳定区与历史文本部件' });
+    const segmentTable = make('table', 'vertex-paygo-cost-table', undefined, { 'aria-label': t("vertex_paygo.cache_diagnostics.segment_table") });
     const segmentHead = make('thead'), segmentHeadRow = make('tr');
-    for (const label of ['消息块', '文本部件', '来源区域', '长度（字符）']) segmentHeadRow.append(make('th', '', label));
+    for (const label of [t("vertex_paygo.cache_diagnostics.block"), t("vertex_paygo.cache_diagnostics.part"), t("vertex_paygo.cache_diagnostics.area"), t("vertex_paygo.cache_diagnostics.length")]) segmentHeadRow.append(make('th', '', label));
     segmentHead.append(segmentHeadRow);
     const segmentRows = make('tbody'); segmentTable.append(segmentHead, segmentRows); segmentWrap.append(segmentTable);
-    const raw = disclosure('原始结构摘要');
+    const raw = disclosure(t("vertex_paygo.cache_diagnostics.raw_summary"));
     const preview = make('pre', 'vertex-paygo-log-record-raw', '', { id: 'vertex-paygo-cache-diagnostics-preview' });
     raw.append(preview); advanced.append(structure, prefixStatus, segmentWrap, comparison, comparisonNote, blockWrap, blockNote, raw);
-    const explanation = disclosure('数据说明');
-    explanation.append(make('p', 'vertex-paygo-cache-note', '命中比例 = 缓存 tokens ÷ 输入 tokens。缓存计数缺失或无效时显示未知；字符数与 token 数不同。'),
-        make('p', 'vertex-paygo-cache-note', '结构比较用于判断请求是否稳定。缓存命中以 Google 返回用量为准，费用按用量与单价估算。'),
-        make('p', 'vertex-paygo-cache-note', '原因分析优先参考当前聊天最近同模型、来源和区域的成功请求。两次请求发起间隔包含生成时间，无法代表云端缓存的实际年龄；记录不覆盖其他聊天或账号、项目的变化。'),
-        make('p', 'vertex-paygo-cache-note', '逐字差异仅在同一后端进程、五分钟内有同范围成功参考请求时采集。正文只在有容量上限的短期内存中比较，账本保存位置和长度，不保存提示词正文。'),
-        make('p', 'vertex-paygo-cache-note', coverageNotice || '记录范围为关联本地用量记录的 Google 代理请求。结构摘要保留长度、指纹和参数，不含提示词正文。'));
-    const policyNote = make('p', 'vertex-paygo-cache-note', `隐式缓存门槛依据 ${CACHE_POLICY_REVIEWED_AT} 核对的官方文档；未列出的模型不推测门槛：`);
+    const explanation = disclosure(t("vertex_paygo.cache_diagnostics.data_notes"));
+    explanation.append(make('p', 'vertex-paygo-cache-note', t("vertex_paygo.cache_diagnostics.rate_formula")),
+        make('p', 'vertex-paygo-cache-note', t("vertex_paygo.cache_diagnostics.usage_note")),
+        make('p', 'vertex-paygo-cache-note', t("vertex_paygo.cache_diagnostics.reference_note")),
+        make('p', 'vertex-paygo-cache-note', t("vertex_paygo.cache_diagnostics.memory_note")),
+        make('p', 'vertex-paygo-cache-note', coverageNotice || t("vertex_paygo.cache_diagnostics.coverage_note")));
+    const policyNote = make('p', 'vertex-paygo-cache-note', t("vertex_paygo.cache_diagnostics.policy_note", { p0: CACHE_POLICY_REVIEWED_AT }));
     policyNote.append(make('a', '', 'AI Studio', { href: CACHE_POLICY_URLS.makersuite, target: '_blank', rel: 'noopener noreferrer' }),
         documentRef.createTextNode(' · '), make('a', '', 'Vertex AI', { href: CACHE_POLICY_URLS.vertexai, target: '_blank', rel: 'noopener noreferrer' }));
     explanation.append(policyNote);
@@ -131,18 +134,18 @@ export function createCacheDiagnosticsViewer({ documentRef = globalThis.document
         render({ views, selected, state, comparisonText }) {
             const current = views.find(view => view.id === selected);
             const previous = selector.value;
-            const labels = views.map(view => `${time(view.createdAt)} · ${view.model} · ${STATUS_LABELS[view.status]} · 缓存 ${cacheRate(view.usage.cacheRate)}`);
+            const labels = views.map(view => t("vertex_paygo.cache_diagnostics.request_option", { p0: time(view.createdAt), p1: view.model, p2: STATUS_LABELS[view.status], p3: cacheRate(view.usage.cacheRate) }));
             if (selector.options.length !== views.length || [...selector.options].some((option, index) => option.value !== views[index].id
                 || option.textContent !== labels[index])) {
                 selector.replaceChildren(...views.map((view, index) => make('option', '', labels[index], { value: view.id })));
             }
             selector.value = selected ?? ''; selector.disabled = !views.length; refresh.disabled = state === 'loading';
             root.setAttribute('aria-busy', String(state === 'loading'));
-            status.textContent = state === 'loading' ? '正在读取记录…' : state === 'error' ? '读取失败，请刷新重试。'
-                : state === 'no_chat' ? '请先打开聊天。' : !current ? '当前聊天暂无用量记录。' : '';
+            status.textContent = state === 'loading' ? t("vertex_paygo.cache_diagnostics.loading") : state === 'error' ? t("vertex_paygo.cache_diagnostics.load_retry")
+                : state === 'no_chat' ? t("vertex_paygo.cache_diagnostics.open_chat") : !current ? t("vertex_paygo.cache_diagnostics.no_usage") : '';
             status.hidden = !status.textContent; content.hidden = !current;
-            counter.textContent = views.length ? `当前聊天最近 ${views.length} 条记录` : '当前聊天暂无记录';
-            if (!current) { values.forEach(value => { value.textContent = '未知'; }); preview.textContent = ''; return; }
+            counter.textContent = views.length ? t("vertex_paygo.cache_diagnostics.record_count", { p0: views.length }) : t("vertex_paygo.cache_diagnostics.no_records");
+            if (!current) { values.forEach(value => { value.textContent = t("vertex_paygo.cache_diagnostics.unknown"); }); preview.textContent = ''; return; }
             if (previous !== selector.value) body.scrollTop = 0;
             const { usage } = current;
             metadata.textContent = [SOURCE_LABELS[current.source] ?? current.source, current.model, current.region, STATUS_LABELS[current.status]].filter(Boolean).join(' · ');
@@ -151,20 +154,20 @@ export function createCacheDiagnosticsViewer({ documentRef = globalThis.document
             progress.hidden = usage.cacheRate === null;
             if (usage.cacheRate !== null) progress.value = usage.cacheRate;
             const warnings = [];
-            if (usage.cacheField === 'missing' || usage.cacheField === 'omitted') warnings.push('未返回缓存计数，无法计算命中比例。');
-            else if (usage.cacheField === 'mixed') warnings.push('部分子请求未返回缓存计数，汇总命中比例未知。');
-            else if (usage.cacheField === 'invalid') warnings.push('缓存计数无效，无法计算命中比例。');
-            else if (usage.cacheField === 'default-zero') warnings.push('完整官方响应省略缓存零值，已按 Google 协议默认值记录为 0。');
-            if (usage.partial) warnings.push('用量记录不完整或存在无效字段，缓存结论可能不可靠。');
+            if (usage.cacheField === 'missing' || usage.cacheField === 'omitted') warnings.push(t("vertex_paygo.cache_diagnostics.cache_missing"));
+            else if (usage.cacheField === 'mixed') warnings.push(t("vertex_paygo.cache_diagnostics.cache_mixed"));
+            else if (usage.cacheField === 'invalid') warnings.push(t("vertex_paygo.cache_diagnostics.cache_invalid"));
+            else if (usage.cacheField === 'default-zero') warnings.push(t("vertex_paygo.cache_diagnostics.cache_default_zero"));
+            if (usage.partial) warnings.push(t("vertex_paygo.cache_diagnostics.usage_partial"));
             warning.textContent = warnings.join(' '); warning.hidden = !warning.textContent;
-            multi.textContent = current.googleRequestCount > 1 ? `包含 ${current.googleRequestCount} 个 Google 子请求；用量为汇总值，结构显示首个子请求。` : '';
+            multi.textContent = current.googleRequestCount > 1 ? t("vertex_paygo.cache_diagnostics.subrequests", { p0: current.googleRequestCount }) : '';
             multi.hidden = !multi.textContent;
             const diagnosis = current.diagnosis;
             analysis.hidden = !diagnosis;
             if (diagnosis) {
                 analysis.setAttribute('data-cache-outcome', diagnosis.outcome);
                 analysisSummary.textContent = diagnosis.summary;
-                reference.textContent = diagnosis.reference ? `参考：${time(diagnosis.reference.createdAt)} · 两次请求发起间隔 ${interval(diagnosis.reference.elapsedMs)} · 参考命中 ${cacheRate(diagnosis.reference.cacheRate)}` : '';
+                reference.textContent = diagnosis.reference ? t("vertex_paygo.cache_diagnostics.reference", { p0: time(diagnosis.reference.createdAt), p1: interval(diagnosis.reference.elapsedMs), p2: cacheRate(diagnosis.reference.cacheRate) }) : '';
                 reference.hidden = !reference.textContent;
                 findings.replaceChildren(...diagnosis.findings.map(finding => {
                     const item = make('li', '', undefined, { 'data-cache-reason': finding.code });
@@ -180,17 +183,17 @@ export function createCacheDiagnosticsViewer({ documentRef = globalThis.document
             }
             const summary = current.preview;
             structure.textContent = summary.status === 'available'
-                ? `${summary.captureKind === 'tauri-frontend' ? 'TT 前端请求结构；' : ''}系统指令：${summary.systemInstruction ? '有' : '无'}；消息：${number(summary.contentCount)} 块。顺序：${summary.contents.slice(0, 8).map(item => ROLE_LABELS[item?.role] ?? '未知身份').join(' → ')}${summary.contents.length > 8 || summary.omittedContents > 0 ? ' → …' : ''}。`
-                : '暂无请求结构摘要。';
+                ? t("vertex_paygo.cache_diagnostics.structure", { p0: summary.captureKind === 'tauri-frontend' ? t("vertex_paygo.cache_diagnostics.tauri_capture") : '', p1: summary.systemInstruction ? t("vertex_paygo.cache_diagnostics.yes") : t("vertex_paygo.cache_diagnostics.no"), p2: number(summary.contentCount), p3: summary.contents.slice(0, 8).map(item => ROLE_LABELS[item?.role] ?? t("vertex_paygo.cache_diagnostics.role_unknown")).join(' → '), p4: summary.contents.length > 8 || summary.omittedContents > 0 ? ' → …' : '' })
+                : t("vertex_paygo.cache_diagnostics.no_structure");
             comparison.textContent = comparisonText(current.comparison);
             const boundary = summary.cacheBoundary;
-            prefixStatus.textContent = boundary ? `历史来源边界已${boundary.status === 'split' ? '分段' : '独立'}：稳定区 ${number(boundary.stableTextChars)} 字符；历史从第 ${boundary.block} 块、第 ${boundary.part} 个部件开始。`
-                : '暂无可核验的历史来源边界；独立系统提示词仍可单独比较。';
+            prefixStatus.textContent = boundary ? t("vertex_paygo.cache_diagnostics.boundary", { p0: boundary.status === 'split' ? t("vertex_paygo.cache_diagnostics.boundary_split") : t("vertex_paygo.cache_diagnostics.boundary_separate"), p1: number(boundary.stableTextChars), p2: boundary.block, p3: boundary.part })
+                : t("vertex_paygo.cache_diagnostics.boundary_unknown");
             const segments = [];
-            for (const part of summary.systemInstruction?.textSegments ?? []) segments.push({ block: '系统', ...part, area: '系统提示区' });
+            for (const part of summary.systemInstruction?.textSegments ?? []) segments.push({ block: t("vertex_paygo.cache_diagnostics.role_system"), ...part, area: t("vertex_paygo.cache_diagnostics.area_system") });
             summary.contents?.forEach((content, index) => {
                 for (const part of content?.textSegments ?? []) segments.push({ block: index + 1, ...part,
-                    area: boundary ? index + 1 < boundary.block || index + 1 === boundary.block && part.part < boundary.part ? '历史前的稳定区' : '历史及后续区' : '未标记来源边界' });
+                    area: boundary ? index + 1 < boundary.block || index + 1 === boundary.block && part.part < boundary.part ? t("vertex_paygo.cache_diagnostics.area_stable") : t("vertex_paygo.cache_diagnostics.area_history") : t("vertex_paygo.cache_diagnostics.area_unmarked") });
             });
             segmentWrap.hidden = !segments.length;
             segmentRows.replaceChildren(...segments.slice(0, 128).map(segment => {
@@ -200,15 +203,15 @@ export function createCacheDiagnosticsViewer({ documentRef = globalThis.document
             blockWrap.hidden = !rows.length; blockNote.hidden = !rows.length;
             blockRows.replaceChildren(...rows.map(change => {
                 const row = make('tr');
-                const label = change.kind === 'same' ? '内容相同' : change.kind === 'changed' ? '内容或结构变化（位置比较）'
-                    : change.kind === 'unmatched-previous' ? '参考块未配对' : '本轮块未配对';
+                const label = change.kind === 'same' ? t("vertex_paygo.cache_diagnostics.block_same") : change.kind === 'changed' ? t("vertex_paygo.cache_diagnostics.block_changed")
+                    : change.kind === 'unmatched-previous' ? t("vertex_paygo.cache_diagnostics.block_previous_unmatched") : t("vertex_paygo.cache_diagnostics.block_current_unmatched");
                 for (const value of [change.previous ?? '—', change.current ?? '—', label,
                     `${number(change.previousChars)} → ${number(change.currentChars)}`]) row.append(make('td', '', value));
                 return row;
             }));
             preview.textContent = summary.status === 'available' ? JSON.stringify(summary, null, 2)
-                : summary.reason === 'BODY_TOO_LARGE' ? '请求超过 2 MiB 观察上限，未记录结构摘要。'
-                    : '暂无结构摘要。旧版记录或不支持的请求格式可能缺少此数据。';
+                : summary.reason === 'BODY_TOO_LARGE' ? t("vertex_paygo.cache_diagnostics.body_too_large")
+                    : t("vertex_paygo.cache_diagnostics.structure_missing");
         },
         destroy() { for (const dispose of disposers) dispose(); root.remove(); },
     };

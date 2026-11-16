@@ -1,0 +1,27 @@
+/* Billing settings share the extension's controls and theme. */
+.vertex-paygo-billing-settings { display: grid; gap: .9em; }
+.vertex-paygo-billing-settings [hidden] { display: none !important; }
+.vertex-paygo-billing-heading { display: flex; align-items: center; justify-content: space-between; gap: .6em; }
+.vertex-paygo-billing-heading .vertex-paygo-group-title { margin: 0; }
+.vertex-paygo-billing-actions { display: flex; align-items: center; gap: .3em; flex-shrink: 0; }
+.vertex-paygo-billing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6em .75em; margin-top: .75em; }
+.vertex-paygo-billing-settings .vertex-paygo-billing-field { display: grid; grid-template-columns: minmax(0, 1fr); gap: .25em; min-width: 0; }
+.vertex-paygo-billing-field > span { font-size: .9em; }
+.vertex-paygo-billing-field .text_pole { width: 100%; min-width: 0; margin: 0; }
+.vertex-paygo-billing-wide { grid-column: 1 / -1; }
+.vertex-paygo-billing-help { display: inline-block; font-size: .85em; }
+.vertex-paygo-billing-advanced { margin-top: .75em; }
+.vertex-paygo-billing-advanced > summary { cursor: pointer; font-size: .9em; }
+.vertex-paygo-billing-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75em; margin-top: .75em; }
+.vertex-paygo-billing-query-group > .vertex-paygo-guidance { display: block; margin-top: .6em; }
+.vertex-paygo-billing-total { margin: .75em 0 .35em; font-weight: 600; }
+.vertex-paygo-billing-results { overflow-x: auto; margin-top: .5em; }
+.vertex-paygo-billing-results table { width: 100%; border-collapse: collapse; font-size: .85em; }
+.vertex-paygo-billing-results th, .vertex-paygo-billing-results td { padding: .4em .5em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--vertex-paygo-outline, var(--SmartThemeBorderColor)); }
+.vertex-paygo-billing-feedback { margin: 0; font-size: .85em; }
+.vertex-paygo-billing-feedback[data-kind="error"] { color: var(--SmartThemeQuoteColor, currentColor); }
+@media (max-width: 520px) {
+    .vertex-paygo-billing-grid { grid-template-columns: minmax(0, 1fr); }
+    .vertex-paygo-billing-wide { grid-column: auto; }
+    .vertex-paygo-billing-results table { min-width: 470px; }
+}

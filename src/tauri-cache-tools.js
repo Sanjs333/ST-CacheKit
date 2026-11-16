@@ -176,7 +176,7 @@ export function installTauriWorldInfoStability({ context, getContext = () => con
 /** Official Legacy chat assembly exports the same prompt objects used by the
  * plugin runtime. Headless Agent/Session assembly is not bound to those objects. */
 export async function createTauriCacheTools({ context, getContext = () => context, documentRef = globalThis.document,
-    clipboard = globalThis.navigator?.clipboard, createUi = createWorldInfoStabilityUi, onChange = () => {},
+    clipboard = globalThis.navigator?.clipboard, createUi = createWorldInfoStabilityUi, onChange = () => {}, localize,
     createMigration = installPromptMigrationRuntime,
     loadOpenAi = () => import('../../../../openai.js'), loadRegex = () => import('../../../regex/engine.js'),
     loadScript = () => import('../../../../../script.js'), loadUtils = () => import('../../../../utils.js'),
@@ -201,7 +201,7 @@ export async function createTauriCacheTools({ context, getContext = () => contex
             loadScript: getScript, loadUtils, loadConstants: getConstants,
             captureAgentDryRun: true,
             onSourceSnapshot, onChange: () => { ui?.render(); onChange(feature.snapshot()); } });
-        ui = createUi({ feature, migration, documentRef, clipboard });
+        ui = createUi({ feature, migration, documentRef, clipboard, localize });
     } catch (error) { release(); throw error; }
     return {
         feature, migration,

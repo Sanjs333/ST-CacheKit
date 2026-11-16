@@ -3,6 +3,7 @@ import { isNativeGemini4Request } from './gemini4-request.js';
 import { completionIdentity } from './worldinfo-stability.js';
 import { sanitizeChat } from './prompt-migration.js';
 import { mountExtensionSettings } from './extension-settings.js';
+import { createLocalizer } from './i18n.js';
 
 export const CACHE_BOUNDARY_FIELD = '__vertexPayGoCacheBoundary';
 export const CACHE_BOUNDARY_SETTINGS_KEY = 'vertex-paygo-cache-boundary';
@@ -148,18 +149,22 @@ export function createCachePrefixBoundary({ getContext, onChange = () => {}, now
     };
 }
 
-export function createCachePrefixBoundarySettings({ boundary, getContext, documentRef = globalThis.document, mountSettings = mountExtensionSettings } = {}) {
+export function createCachePrefixBoundarySettings({ boundary, getContext, documentRef = globalThis.document, mountSettings = mountExtensionSettings,
+    localize = createLocalizer((fallback, key) => getContext?.()?.translate?.(fallback, key)) } = {}) {
     const make = (tag, text = '') => { const node = documentRef.createElement(tag); node.textContent = text; return node; };
-    const root = make('section'); root.className = 'vertex-paygo-settings';
-    const label = make('label'); label.className = 'checkbox_label';
+    const root = make('section'); root.id = 'vertex-paygo-cache-prefix-settings'; root.className = 'vertex-paygo-group';
+    const title = make('h4', localize('vertex_paygo.cache_boundary.title')); title.className = 'vertex-paygo-group-title';
+    const label = make('label'); label.className = 'vertex-paygo-toggle-row';
     const toggle = make('input'); toggle.type = 'checkbox'; toggle.id = 'vertex-paygo-cache-prefix-boundary';
-    label.append(toggle, make('span', '分离历史前的提示词边界（Gemini 4）'));
-    const note = make('small', '依据实际历史来源，在后端合并时保留文本分界；保持原内容、顺序与角色，沿用记忆插件筛选后的历史。');
-    const status = make('p'); status.className = 'vertex-paygo-cache-note'; root.append(label, note, status);
+    toggle.className = 'vertex-paygo-compact-switch'; toggle.setAttribute('role', 'switch');
+    toggle.setAttribute('aria-label', localize('vertex_paygo.cache_boundary.enabled'));
+    label.append(make('span', localize('vertex_paygo.cache_boundary.enabled')), toggle);
+    const note = make('p', localize('vertex_paygo.cache_boundary.help')); note.className = 'vertex-paygo-guidance';
+    root.append(title, label, note);
     const render = () => { const current = boundary?.snapshot(); toggle.checked = current?.enabled === true;
-        toggle.disabled = !boundary || !getContext?.()?.extensionSettings; status.textContent = current?.reason ?? '来源边界工具不可用。'; };
+        toggle.disabled = !boundary || !getContext?.()?.extensionSettings; };
     const change = () => { boundary?.setEnabled(toggle.checked); render(); };
     toggle.addEventListener('change', change); render();
-    const unmount = mountSettings(root, { documentRef, tab: 'cache', onShow: render });
+    const unmount = mountSettings(root, { documentRef, tab: 'cache', label: localize('vertex_paygo.settings.tab.cache'), onShow: render });
     return { render, destroy() { toggle.removeEventListener('change', change); unmount(); } };
 }

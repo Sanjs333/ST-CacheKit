@@ -13,6 +13,7 @@ import {
 } from './gemini4-request.js';
 import { createGemini4SignatureTracker } from './gemini4-signatures.js';
 import { CACHE_BOUNDARY_FIELD } from './cache-prefix-boundary.js';
+import { applySystemPromptPreference } from './system-prompt-settings.js';
 
 const REQUEST_STATE = '__vertexPayGoRequestState';
 const GENERATE_PATH = '/api/backends/chat-completions/generate';
@@ -116,6 +117,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
 
     const onSettingsReady = data => {
         if (destroyed) return;
+        applySystemPromptPreference(data, target.SillyTavern?.getContext?.() ?? context);
         if (!isGoogleSource(data?.chat_completion_source)) {
             if (data?.[REQUEST_STATE]?.background === true) return;
             const chatId = captureUsageContext();
@@ -160,6 +162,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
         // instead of silently letting a paid request bypass preparation.
         if (typeof rawBody !== 'string') throw new TypeError('[提示词缓存优化] Expected a JSON generation request.');
         const data = JSON.parse(rawBody);
+        applySystemPromptPreference(data, target.SillyTavern?.getContext?.() ?? context);
         const hadBoundaryMarker = Object.hasOwn(data, CACHE_BOUNDARY_FIELD);
         delete data[CACHE_BOUNDARY_FIELD];
         const hadInspectorMarker = Object.hasOwn(data, PROMPT_INSPECTOR_FIELD);

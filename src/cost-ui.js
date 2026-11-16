@@ -40,53 +40,53 @@ function cacheRate(value) {
     return formatCacheHitRate(value);
 }
 
-function errorText(code) {
+function errorText(code, t = createLocalizer()) {
     const normalized = String(code ?? '').toUpperCase();
     if (!normalized) return '';
-    if (normalized === '429' || normalized.endsWith('_429') || normalized.includes('RATE') || normalized.includes('QUOTA')) return '限流';
-    if (normalized.includes('ABORT') || normalized.includes('CANCEL') || normalized === 'CLIENT_DISCONNECTED') return '连接中断';
-    if (normalized.includes('COMPRESS') || normalized.includes('COMPACT')) return '压缩响应无法采集用量';
-    if (normalized.includes('RESTART')) return '服务重启，用量不完整';
-    if (normalized.includes('TIMEOUT')) return '等待用量超时';
-    if (normalized === 'UPSTREAM_RESPONSE_STREAM_FAILED') return '响应流中断';
-    if (normalized === 'USAGE_METADATA_MISSING') return '未返回用量';
-    if (normalized.includes('LIMIT')) return '用量采集超出限制';
+    if (normalized === '429' || normalized.endsWith('_429') || normalized.includes('RATE') || normalized.includes('QUOTA')) return t("vertex_paygo.costs.rate_limited");
+    if (normalized.includes('ABORT') || normalized.includes('CANCEL') || normalized === 'CLIENT_DISCONNECTED') return t("vertex_paygo.costs.disconnected");
+    if (normalized.includes('COMPRESS') || normalized.includes('COMPACT')) return t("vertex_paygo.costs.compressed");
+    if (normalized.includes('RESTART')) return t("vertex_paygo.costs.restarted");
+    if (normalized.includes('TIMEOUT')) return t("vertex_paygo.costs.timeout");
+    if (normalized === 'UPSTREAM_RESPONSE_STREAM_FAILED') return t("vertex_paygo.costs.stream_interrupted");
+    if (normalized === 'USAGE_METADATA_MISSING') return t("vertex_paygo.costs.usage_omitted");
+    if (normalized.includes('LIMIT')) return t("vertex_paygo.costs.capture_limit");
     const http = normalized.match(/HTTP_(\d{3})$/);
     if (http) return `HTTP ${http[1]}`;
-    return '请求错误';
+    return t("vertex_paygo.costs.request_error");
 }
 
-function statusText(record, estimate) {
-    if (record?.status === 'pending') return '待生成';
-    if (record?.status === 'failed') return `请求失败${errorText(record.errorCode) ? `（${errorText(record.errorCode)}）` : ''}`;
+function statusText(record, estimate, t = createLocalizer()) {
+    if (record?.status === 'pending') return t("vertex_paygo.costs.pending");
+    if (record?.status === 'failed') return t("vertex_paygo.costs.failed", { p0: errorText(record.errorCode, t) ? `（${errorText(record.errorCode, t)}）` : '' });
     if (record?.status === 'incomplete' && record.errorCode) {
-        return errorText(record.errorCode) + (estimate.amount !== null ? '，部分估算' : '');
+        return errorText(record.errorCode, t) + (estimate.amount !== null ? t("vertex_paygo.costs.partial_suffix") : '');
     }
     const reasons = {
-        usage_missing: '无用量数据', usage_incomplete: '用量数据不完整',
-        cache_exceeds_prompt: '用量数据无效', provisioned_throughput: '预置吞吐量无法估算',
-        unsupported_modality: '非文本模态无法估算', traffic_tier_mismatch: '计费层级不匹配',
-        price_missing: '价格未配置', long_price_missing: '长上下文价格未配置',
-        tool_use: '含工具调用，仅部分估算', request_incomplete: '用量不完整，仅部分估算',
-        tauri_normalized: 'TauriTavern 用量信息可能不完整，仅部分估算',
-        cache_count_missing: '缓存计数缺失，暂按无缓存折扣估算',
-        cache_count_mixed: '子请求缓存计数不完整，仅按已知部分估算',
-        cache_count_invalid: '缓存计数无效，暂按无缓存折扣估算',
+        usage_missing: t("vertex_paygo.costs.no_usage"), usage_incomplete: t("vertex_paygo.costs.usage_incomplete"),
+        cache_exceeds_prompt: t("vertex_paygo.costs.usage_invalid"), provisioned_throughput: t("vertex_paygo.costs.provisioned"),
+        unsupported_modality: t("vertex_paygo.costs.modality"), traffic_tier_mismatch: t("vertex_paygo.costs.tier_mismatch"),
+        price_missing: t("vertex_paygo.costs.price_missing"), long_price_missing: t("vertex_paygo.costs.long_price_missing"),
+        tool_use: t("vertex_paygo.costs.tool_partial"), request_incomplete: t("vertex_paygo.costs.usage_partial"),
+        tauri_normalized: t("vertex_paygo.costs.tauri_partial"),
+        cache_count_missing: t("vertex_paygo.costs.cache_unknown"),
+        cache_count_mixed: t("vertex_paygo.costs.cache_mixed"),
+        cache_count_invalid: t("vertex_paygo.costs.cache_invalid"),
     };
     if (estimate.reason && reasons[estimate.reason]) {
-        const suffix = estimate.priceSource === 'current' && estimate.amount !== null ? '（按当前价格）' : '';
+        const suffix = estimate.priceSource === 'current' && estimate.amount !== null ? t("vertex_paygo.costs.current_price_suffix") : '';
         return `${reasons[estimate.reason]}${suffix}`;
     }
-    if (record?.status === 'incomplete') return '用量不完整';
-    if (estimate.status === 'estimated') return estimate.priceSource === 'current' ? '估算（按当前价格）' : '估算';
-    if (estimate.status === 'partial') return estimate.priceSource === 'current' ? '部分估算（按当前价格）' : '部分估算';
-    if (estimate.status === 'unpriced') return '价格未配置';
-    return errorText(record?.errorCode) || '无法估算';
+    if (record?.status === 'incomplete') return t("vertex_paygo.costs.incomplete");
+    if (estimate.status === 'estimated') return estimate.priceSource === 'current' ? t("vertex_paygo.costs.estimated_current") : t("vertex_paygo.costs.estimated");
+    if (estimate.status === 'partial') return estimate.priceSource === 'current' ? t("vertex_paygo.costs.partial_current") : t("vertex_paygo.costs.partial");
+    if (estimate.status === 'unpriced') return t("vertex_paygo.costs.price_missing");
+    return errorText(record?.errorCode, t) || t("vertex_paygo.costs.unavailable");
 }
 
-function choiceLabel(name, value) {
+function choiceLabel(name, value, t = createLocalizer()) {
     if (name === 'source') return ({ vertexai: 'Vertex AI', makersuite: 'Google AI Studio' })[value] ?? value;
-    if (name === 'tier') return ({ standard: '标准', flex: 'Flex', priority: 'Priority' })[value] ?? value;
+    if (name === 'tier') return ({ standard: t("vertex_paygo.costs.standard"), flex: 'Flex', priority: 'Priority' })[value] ?? value;
     return value;
 }
 
@@ -104,9 +104,10 @@ export function createCostUi({
     documentRef = globalThis.document,
     localize = createLocalizer((fallback, key) => context?.translate?.(fallback, key)),
 }) {
-    if (!documentRef?.createElement) throw new TypeError('当前环境缺少页面文档接口。');
+    const t = localize;
+    if (!documentRef?.createElement) throw new TypeError(t("vertex_paygo.costs.document_unavailable"));
     const menu = documentRef.getElementById('extensionsMenu');
-    if (!menu) throw new Error('酒馆扩展菜单不可用。');
+    if (!menu) throw new Error(t("vertex_paygo.costs.menu_unavailable"));
 
     const menuItem = element(documentRef, 'div', 'list-group-item flex-container flexGap5 vertex-paygo-cost-menu');
     menuItem.setAttribute('role', 'button');
@@ -125,7 +126,7 @@ export function createCostUi({
     let renderToken = 0;
     let activeView = null;
     const priceSettings = createPriceSettingsUi({ documentRef, getCurrentPricingKey, getPrices, getPriceInfo,
-        setPrice, resetPrice, refreshCatalog, onChange: async () => {
+        setPrice, resetPrice, refreshCatalog, localize, onChange: async () => {
             if (!destroyed && activeView) await activeView.load();
         } });
     const unmountSettings = mountExtensionSettings(priceSettings.root, { documentRef, tab: 'pricing',
@@ -151,7 +152,7 @@ export function createCostUi({
         const close = iconButton(documentRef, localize('vertex_paygo.costs.close'), 'fa-xmark', 'vertex-paygo-cost-close');
         toolbar.append(refresh, close);
         header.append(heading, toolbar);
-        const summary = element(documentRef, 'div', 'vertex-paygo-cost-summary', '正在读取用量…');
+        const summary = element(documentRef, 'div', 'vertex-paygo-cost-summary', t("vertex_paygo.costs.loading"));
         summary.setAttribute('role', 'status');
         const tableWrap = element(documentRef, 'div', 'vertex-paygo-cost-table-wrap');
         root.append(header, summary, tableWrap);
@@ -163,23 +164,23 @@ export function createCostUi({
             refresh.disabled = true;
             try {
                 if (!chatId) {
-                    summary.textContent = `暂无用量记录。单价可在扩展设置「${EXTENSION_DISPLAY_NAME}」→「价格」中设置。`;
+                    summary.textContent = t("vertex_paygo.costs.no_records", { p0: EXTENSION_DISPLAY_NAME });
                     tableWrap.replaceChildren();
                     return;
                 }
                 if (getChatId?.() !== chatId) {
-                    summary.textContent = '对话已切换，请重新打开费用窗口。';
+                    summary.textContent = t("vertex_paygo.costs.chat_changed");
                     tableWrap.replaceChildren();
                     return;
                 }
                 const response = await serverClient.readUsage(chatId);
                 if (token !== renderToken || activeChatId !== chatId) return;
                 if (getChatId?.() !== chatId) {
-                    summary.textContent = '对话已切换，请重新打开费用窗口。';
+                    summary.textContent = t("vertex_paygo.costs.chat_changed");
                     tableWrap.replaceChildren();
                     return;
                 }
-                if (!response?.ok) throw new Error(response?.error || '读取用量失败');
+                if (!response?.ok) throw new Error(response?.error || t("vertex_paygo.costs.load_failed"));
                 const records = (Array.isArray(response.records) ? response.records : [])
                     .filter(record => record?.chatId === chatId).slice(-MAX_USAGE_RECORDS_PER_CHAT);
                 priceSettings.updateKeyLists(records);
@@ -187,35 +188,35 @@ export function createCostUi({
                 const latest = result.details.at(-1)?.estimate;
                 const subtotal = result.estimatedCount ? money(result.amount) : '—';
                 const latestAmount = latest?.amount === null || latest === undefined ? '—' : money(latest.amount);
-                summary.textContent = `已估算小计 ${subtotal} · 最近一次 ${latestAmount} · ${result.requestCount} 次请求 · 缓存命中 ${result.cachedTokenCount ?? '未知'} token · 待计价 ${result.unpricedCount} · 不完整 ${result.incompleteCount}`;
-                if (result.unknownCacheCount) summary.textContent += ` · ${result.unknownCacheCount} 次请求的缓存计数待确认`;
+                summary.textContent = t("vertex_paygo.costs.summary", { p0: subtotal, p1: latestAmount, p2: result.requestCount, p3: result.cachedTokenCount ?? t("vertex_paygo.cache_diagnostics.unknown"), p4: result.unpricedCount, p5: result.incompleteCount });
+                if (result.unknownCacheCount) summary.textContent += t("vertex_paygo.costs.unknown_requests", { p0: result.unknownCacheCount });
                 summary.textContent += ` · ${localize('vertex_paygo.costs.cache_hit_rate')} ${cacheRate(result.cacheHitRate)}`;
-                summary.title = `${localize('vertex_paygo.costs.cache_hit_rate_hint')}。费用为本地估算，未读取谷歌账单。`;
-                if (response.truncated) summary.append(element(documentRef, 'strong', 'vertex-paygo-cost-truncated', ' · 记录已截断，仅统计返回的部分账本'));
+                summary.title = t("vertex_paygo.costs.estimate_note", { p0: localize('vertex_paygo.costs.cache_hit_rate_hint') });
+                if (response.truncated) summary.append(element(documentRef, 'strong', 'vertex-paygo-cost-truncated', t("vertex_paygo.costs.truncated")));
                 tableWrap.replaceChildren();
                 if (records.some(record => record.usageAccuracy === 'tauri-normalized')) {
                     tableWrap.append(element(documentRef, 'p', 'vertex-paygo-cost-tauri-warning',
-                        'TauriTavern 的非流式用量可能缺少思考 Token 等信息，费用估算可能不完整或偏低。'));
+                        t("vertex_paygo.costs.tauri_note")));
                 }
                 const table = element(documentRef, 'table', 'vertex-paygo-cost-table');
                 const head = element(documentRef, 'thead');
                 const headRow = element(documentRef, 'tr');
-                for (const title of ['请求时间', '模型 / 层级', '状态', '输入', '缓存', localize('vertex_paygo.costs.cache_hit_rate'), '输出', '思考', '费用估算']) headRow.append(element(documentRef, 'th', '', title));
+                for (const title of [t("vertex_paygo.costs.request_time"), t("vertex_paygo.costs.model_tier"), t("vertex_paygo.costs.status"), t("vertex_paygo.costs.input"), t("vertex_paygo.settings.tab.cache"), localize('vertex_paygo.costs.cache_hit_rate'), t("vertex_paygo.costs.output"), t("vertex_paygo.costs.thinking"), t("vertex_paygo.costs.amount")]) headRow.append(element(documentRef, 'th', '', title));
                 head.append(headRow);
                 const body = element(documentRef, 'tbody');
                 tableWrap.append(element(documentRef, 'p', 'vertex-paygo-cost-retention-note',
-                    `列表与合计仅统计当前对话最近 ${MAX_USAGE_RECORDS_PER_CHAT} 条请求。`));
+                    t("vertex_paygo.costs.retention", { p0: MAX_USAGE_RECORDS_PER_CHAT })));
                 for (const { record, estimate } of result.details.slice(-MAX_USAGE_RECORDS_PER_CHAT).reverse()) {
                     const row = element(documentRef, 'tr');
                     const count = name => {
                         const value = record.usage?.[name];
                         return Number.isSafeInteger(value) && value >= 0 ? String(value) : '—';
                     };
-                    const status = element(documentRef, 'td', '', statusText(record, estimate));
+                    const status = element(documentRef, 'td', '', statusText(record, estimate, t));
                     status.title = [record.errorCode, estimate.reason].filter(Boolean).join(' / ');
                     row.append(
                         element(documentRef, 'td', '', record.createdAt ? new Date(record.createdAt).toLocaleString() : '—'),
-                        element(documentRef, 'td', '', `${choiceLabel('source', record.source || '')} · ${record.model || '未知模型'} / ${record.tier || '未知层级'}`),
+                        element(documentRef, 'td', '', `${choiceLabel('source', record.source || '', t)} · ${record.model || t("vertex_paygo.costs.unknown_model")} / ${choiceLabel('tier', record.tier || t("vertex_paygo.costs.unknown_tier"), t)}`),
                         status,
                         element(documentRef, 'td', '', count('promptTokenCount')),
                         element(documentRef, 'td', '', cacheTokenCount(record) ?? '—'),
@@ -232,7 +233,7 @@ export function createCostUi({
                     pollTimer = setTimeout(() => void load(), POLL_MS);
                 }
             } catch (error) {
-                if (token === renderToken) summary.textContent = `无法读取用量：${error instanceof Error ? error.message : String(error)}`;
+                if (token === renderToken) summary.textContent = t("vertex_paygo.costs.read_error", { p0: error instanceof Error ? error.message : String(error) });
             } finally {
                 if (token === renderToken) refresh.disabled = false;
             }

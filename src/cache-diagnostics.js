@@ -6,6 +6,7 @@ import { createExtensionDialog } from './dialog.js';
 import { buildCacheMissAnalysis, sameCacheScope } from './cache-miss-analysis.js';
 import { compareRequestPreviews, projectCacheBoundary, projectRequestComparison } from './cache-request-comparison.js';
 import { cacheTokenCount } from './cost-model.js';
+import { createLocalizer } from './i18n.js';
 export { compareRequestPreviews } from './cache-request-comparison.js';
 
 const count = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
@@ -77,7 +78,7 @@ export function cacheUsageView(record) {
         partial: record?.status !== 'complete' || Array.isArray(record?.usage?.invalidUsageFields) && record.usage.invalidUsageFields.length > 0 };
 }
 
-export function buildCacheDiagnostics(records) {
+export function buildCacheDiagnostics(records, localize = createLocalizer()) {
     // Select twelve previews without filtering the full ledger.
     const latest = [];
     if (Array.isArray(records)) for (let index = records.length - 1; index >= 0 && latest.length < 12; index--) {
@@ -96,32 +97,34 @@ export function buildCacheDiagnostics(records) {
         const previous = views[index + 1] ?? null;
         const reference = views.slice(index + 1).find(candidate => candidate.status === 'complete' && sameCacheScope(view, candidate)) ?? null;
         return { ...view, comparison: compareRequestPreviews(view, previous),
-            diagnosis: buildCacheMissAnalysis(view, { previous, reference, comparison: compareRequestPreviews(view, reference) }) };
+            diagnosis: buildCacheMissAnalysis(view, { previous, reference, comparison: compareRequestPreviews(view, reference), localize }) };
     });
 }
 
-const comparisonText = value => {
-    if (value.status === 'no_previous') return '暂无上一条记录。';
-    if (value.status === 'different_epoch') return '指纹密钥不同或缺失，无法比较。';
-    if (value.status === 'different_scope') return '模型、来源或区域不同，无法比较。';
-    if (value.status === 'different_capture') return '结构摘要的采集阶段不同，无法比较。';
-    if (value.status !== 'compared') return '结构摘要不完整，无法比较。';
+const comparisonText = (value, t = createLocalizer()) => {
+    if (value.status === 'no_previous') return t("vertex_paygo.cache_diagnostics.no_previous");
+    if (value.status === 'different_epoch') return t("vertex_paygo.cache_diagnostics.different_epoch");
+    if (value.status === 'different_scope') return t("vertex_paygo.cache_diagnostics.different_scope");
+    if (value.status === 'different_capture') return t("vertex_paygo.cache_diagnostics.different_capture");
+    if (value.status !== 'compared') return t("vertex_paygo.cache_diagnostics.comparison_unavailable");
     const exact = value.wireComparison;
-    const textComparison = exact ? `实际发送文本的共同前缀：${exact.commonTextChars.toLocaleString('zh-CN')} 个字符（按相同角色与部件结构比较，不是缓存 token 数）。`
-        : '未记录块内逐字比较；完整相同块数为 0 时，仍可能有很长的相同文本前缀。';
-    return `与上一条记录比较：系统指令${value.systemUnchanged ? '相同' : '不同'}；消息 ${value.previousContentCount} → ${value.currentContentCount} 块；前 ${value.commonBlocks} 个完整消息块相同，共 ${value.commonTextChars} 个文本字符（含相同系统指令）；其他参数${value.parametersComparable ? value.sameParameters ? '相同' : '不同' : '未知'}。${textComparison}${value.bounded ? '结构列表已截断，比较范围有限。' : ''}`;
+    const textComparison = exact ? t("vertex_paygo.cache_diagnostics.exact_prefix", { p0: exact.commonTextChars.toLocaleString() })
+        : t("vertex_paygo.cache_diagnostics.no_exact_prefix");
+    return t("vertex_paygo.cache_diagnostics.comparison_summary", { p0: value.systemUnchanged ? t("vertex_paygo.cache_diagnostics.same") : t("vertex_paygo.cache_diagnostics.different"), p1: value.previousContentCount, p2: value.currentContentCount, p3: value.commonBlocks, p4: value.commonTextChars, p5: value.parametersComparable ? value.sameParameters ? t("vertex_paygo.cache_diagnostics.same") : t("vertex_paygo.cache_diagnostics.different") : t("vertex_paygo.cache_diagnostics.unknown"), p6: textComparison, p7: value.bounded ? t("vertex_paygo.cache_diagnostics.comparison_bounded") : '' });
 };
 
 export function createCacheDiagnosticsUi({ serverClient, getChatId, context, documentRef = globalThis.document,
-    coverageNotice = '', coverageSummary = '' }) {
+    coverageNotice = '', coverageSummary = '', localize = createLocalizer((fallback, key) => context?.translate?.(fallback, key) ?? fallback) }) {
+    const t = localize;
+    const formatComparison = value => comparisonText(value, localize);
     const make = (tag, text = '') => { const node = documentRef.createElement(tag); node.textContent = text; return node; };
     const root = make('section'); root.id = 'vertex-paygo-cache-diagnostics'; root.className = 'vertex-paygo-settings vertex-paygo-log-settings';
     const actions = make('div'); actions.id = `${root.id}-actions`; actions.className = 'vertex-paygo-log-actions';
-    const title = make('h4', 'Google 请求与缓存诊断'); title.className = 'vertex-paygo-action-label';
+    const title = make('h4', t("vertex_paygo.cache_diagnostics.title")); title.className = 'vertex-paygo-action-label';
     const tools = make('div'); tools.className = 'vertex-paygo-log-tools';
     const viewButton = make('button'); viewButton.type = 'button'; viewButton.id = `${root.id}-view`;
     viewButton.className = 'menu_button vertex-paygo-icon-button vertex-paygo-log-button';
-    viewButton.setAttribute('title', '查看 Google 请求与缓存诊断'); viewButton.setAttribute('aria-label', '查看 Google 请求与缓存诊断');
+    viewButton.setAttribute('title', t("vertex_paygo.cache_diagnostics.open")); viewButton.setAttribute('aria-label', t("vertex_paygo.cache_diagnostics.open"));
     const icon = make('i'); icon.className = 'fa-solid fa-chart-simple'; icon.setAttribute('aria-hidden', 'true');
     viewButton.append(icon); tools.append(viewButton); actions.append(title, tools);
     const statusNode = make('small'); statusNode.className = 'vertex-paygo-status'; statusNode.setAttribute('aria-live', 'polite');
@@ -132,9 +135,9 @@ export function createCacheDiagnosticsUi({ serverClient, getChatId, context, doc
     const listeners = [];
     function render() {
         if (destroyed) return;
-        statusNode.textContent = state === 'loading' ? '正在读取记录…' : state === 'error' ? '读取失败，请打开查看器后刷新重试。' : '';
+        statusNode.textContent = state === 'loading' ? t("vertex_paygo.cache_diagnostics.loading") : state === 'error' ? t("vertex_paygo.cache_diagnostics.load_retry_viewer") : '';
         statusNode.hidden = !statusNode.textContent;
-        session?.viewer.render({ views, selected, state, comparisonText });
+        session?.viewer.render({ views, selected, state, comparisonText: formatComparison });
     }
     function disposeSession(current) {
         if (session !== current) return;
@@ -159,7 +162,7 @@ export function createCacheDiagnosticsUi({ serverClient, getChatId, context, doc
         if (session) { session.viewer.root.querySelector('select')?.focus?.(); return; }
         const current = { popup: null, dialog: null, disposers: [] };
         current.viewer = createCacheDiagnosticsViewer({ documentRef, onRefresh: () => void refresh(),
-            coverageNotice, coverageSummary,
+            coverageNotice, coverageSummary, localize,
             onSelect: value => { if (views.some(view => view.id === value)) { selected = value; followLatest = selected === views[0]?.id; } render(); },
             onClose: () => close(current) });
         session = current; render();
@@ -190,8 +193,8 @@ export function createCacheDiagnosticsUi({ serverClient, getChatId, context, doc
             try {
                 const result = await serverClient.readUsage(chatId, { includeRequestPreviews: true, latest: 12 });
                 if (destroyed || task.epoch !== epoch || getChatId() !== chatId) return;
-                if (result?.ok !== true || !Array.isArray(result.records)) throw new Error('用量数据不可用');
-                views = buildCacheDiagnostics(result.records.filter(record => record?.chatId === chatId));
+                if (result?.ok !== true || !Array.isArray(result.records)) throw new Error(t("vertex_paygo.cache_diagnostics.usage_unavailable"));
+                views = buildCacheDiagnostics(result.records.filter(record => record?.chatId === chatId), localize);
                 if (followLatest || !views.some(view => view.id === selected)) selected = views[0]?.id ?? null;
                 state = 'ready';
             } catch { if (!destroyed && task.epoch === epoch) state = 'error'; }
@@ -218,7 +221,7 @@ export function createCacheDiagnosticsUi({ serverClient, getChatId, context, doc
     viewButton.addEventListener('click', onView);
     let unmount;
     try {
-        unmount = mountExtensionSettings(root, { documentRef, tab: 'logs', label: '日志', onShow: onRefresh });
+        unmount = mountExtensionSettings(root, { documentRef, tab: 'logs', label: t("vertex_paygo.settings.tab.logs"), onShow: onRefresh });
         listen('CHAT_CHANGED', reset); listen('GENERATION_ENDED', schedule); listen('MESSAGE_RECEIVED', schedule);
         render();
     } catch (error) {
