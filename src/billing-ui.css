@@ -10,6 +10,8 @@
 .vertex-paygo-billing-field .text_pole { width: 100%; min-width: 0; margin: 0; }
 .vertex-paygo-billing-wide { grid-column: 1 / -1; }
 .vertex-paygo-billing-help { display: inline-block; font-size: .85em; }
+.vertex-paygo-billing-credentials { display: flex; align-items: center; flex-wrap: wrap; gap: .5em; margin-top: .75em; }
+.vertex-paygo-billing-credentials .menu_button { margin: 0; }
 .vertex-paygo-billing-advanced { margin-top: .75em; }
 .vertex-paygo-billing-advanced > summary { cursor: pointer; font-size: .9em; }
 .vertex-paygo-billing-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75em; margin-top: .75em; }

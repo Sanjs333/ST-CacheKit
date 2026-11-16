@@ -150,7 +150,7 @@ export function createCachePrefixBoundary({ getContext, onChange = () => {}, now
 }
 
 export function createCachePrefixBoundarySettings({ boundary, getContext, documentRef = globalThis.document, mountSettings = mountExtensionSettings,
-    localize = createLocalizer((fallback, key) => getContext?.()?.translate?.(fallback, key)) } = {}) {
+    localize = createLocalizer((fallback, key) => getContext?.()?.translate?.(fallback, key)), helpKey = 'vertex_paygo.cache_boundary.help' } = {}) {
     const make = (tag, text = '') => { const node = documentRef.createElement(tag); node.textContent = text; return node; };
     const root = make('section'); root.id = 'vertex-paygo-cache-prefix-settings'; root.className = 'vertex-paygo-group';
     const title = make('h4', localize('vertex_paygo.cache_boundary.title')); title.className = 'vertex-paygo-group-title';
@@ -159,7 +159,7 @@ export function createCachePrefixBoundarySettings({ boundary, getContext, docume
     toggle.className = 'vertex-paygo-compact-switch'; toggle.setAttribute('role', 'switch');
     toggle.setAttribute('aria-label', localize('vertex_paygo.cache_boundary.enabled'));
     label.append(make('span', localize('vertex_paygo.cache_boundary.enabled')), toggle);
-    const note = make('p', localize('vertex_paygo.cache_boundary.help')); note.className = 'vertex-paygo-guidance';
+    const note = make('p', localize(helpKey)); note.className = 'vertex-paygo-guidance';
     root.append(title, label, note);
     const render = () => { const current = boundary?.snapshot(); toggle.checked = current?.enabled === true;
         toggle.disabled = !boundary || !getContext?.()?.extensionSettings; };

@@ -60,6 +60,16 @@ export function createBillingUi({ context, serverClient, getChatId, documentRef 
     ]) field(name, label, placeholder, advancedFields);
     advanced.append(advancedFields);
     connection.append(heading, enableLabel, guidance, help, form, advanced);
+    let importButton, credentialFile, credentialStatus;
+    if (typeof serverClient?.importServiceAccount === 'function') {
+        const credentialActions = make('div', '', 'vertex-paygo-billing-credentials');
+        importButton = make('button', t('import_credentials'), 'menu_button'); importButton.type = 'button';
+        importButton.id = 'vertex-paygo-billing-import';
+        credentialFile = make('input'); credentialFile.type = 'file'; credentialFile.accept = '.json,application/json'; credentialFile.hidden = true;
+        credentialFile.id = 'vertex-paygo-billing-credential-file';
+        credentialStatus = make('small', '', 'vertex-paygo-guidance'); credentialStatus.hidden = true; credentialStatus.setAttribute('aria-live', 'polite');
+        credentialActions.append(importButton, credentialFile, credentialStatus); connection.append(credentialActions);
+    }
 
     const queryGroup = make('section', '', 'vertex-paygo-group vertex-paygo-billing-query-group');
     const queryHeading = make('div', '', 'vertex-paygo-billing-heading');
@@ -108,13 +118,16 @@ export function createBillingUi({ context, serverClient, getChatId, documentRef 
         save.disabled = busy || !settingsReady || !saved || !dirty; refresh.disabled = busy;
         refresh.title = t(dirty ? 'reload_discard' : 'reload'); refresh.setAttribute('aria-label', refresh.title);
         query.disabled = busy || !settingsReady || !saved?.enabled || dirty;
+        if (importButton) importButton.disabled = busy || !settingsReady;
         for (const input of inputs.values()) input.disabled = busy || !settingsReady;
         for (const input of [start, end, scope, requestId]) input.disabled = !settingsReady || !saved?.enabled;
         root.setAttribute('aria-busy', String(busy));
     };
     const clearResults = () => { epoch++; summary.textContent = ''; summary.hidden = true; result.replaceChildren(); };
     const fill = value => {
-        const next = billingSettings(value, localize); saved = next; settingsReady = true; dirty = false;
+        const next = billingSettings(value, localize);
+        if (saved && saved.secretId !== next.secretId && credentialStatus) { credentialStatus.textContent = ''; credentialStatus.hidden = true; }
+        saved = next; settingsReady = true; dirty = false;
         for (const [name, input] of inputs) if (input.type === 'checkbox') input.checked = next[name] === true; else input.value = next[name] ?? '';
         controls();
     };
@@ -141,6 +154,23 @@ export function createBillingUi({ context, serverClient, getChatId, documentRef 
     };
     for (const input of inputs.values()) { listen(input, 'input', onSettingsChanged); listen(input, 'change', onSettingsChanged); }
     listen(refresh, 'click', () => { if (!busy) void load({ force: true, discardChanges: true }); });
+    if (importButton) {
+        listen(importButton, 'click', () => { if (!busy && settingsReady && !destroyed) credentialFile.click(); });
+        listen(credentialFile, 'change', async () => {
+            const file = credentialFile.files?.[0];
+            if (!file || destroyed || busy || !settingsReady) { credentialFile.value = ''; return; }
+            busy = true; clearResults(); controls();
+            try {
+                if (file.size > 65536) { feedback(t('error_import'), 'error'); return; }
+                const raw = await file.text();
+                if (destroyed) return;
+                const value = await serverClient.importServiceAccount(raw);
+                if (destroyed) return;
+                credentialStatus.textContent = t('credentials_imported', { project: value.projectId }); credentialStatus.hidden = false; feedback();
+            } catch (error) { if (!destroyed) feedback(errorMessage(error), 'error'); }
+            finally { credentialFile.value = ''; busy = false; if (!destroyed) controls(); }
+        });
+    }
     const onQueryChanged = () => { clearResults(); if (busy) feedback(t('status_changed')); };
     listen(scope, 'change', () => { requestLabel.hidden = scope.value !== 'request'; onQueryChanged(); });
     for (const input of [start, end, requestId]) { listen(input, 'change', onQueryChanged); listen(input, 'input', onQueryChanged); }
@@ -160,7 +190,8 @@ export function createBillingUi({ context, serverClient, getChatId, documentRef 
         if (busy || !settingsReady || !saved?.enabled || dirty || destroyed) return;
         let selected;
         try { selected = billingQuery({ startDate: start.value, endDate: end.value, scope: scope.value,
-            chatId: scope.value === 'chat' ? getChatId?.() : undefined, requestId: requestId.value.trim() }, localize); }
+            chatId: scope.value === 'chat' ? getChatId?.() : undefined, requestId: requestId.value.trim() }, localize,
+            { allowUsageRequestIds: serverClient.acceptsUsageRequestIds === true }); }
         catch (error) { feedback(errorMessage(error), 'error'); return; }
         busy = true; clearResults(); const currentEpoch = epoch; controls(); feedback(t('status_querying'));
         try {

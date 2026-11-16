@@ -15,6 +15,8 @@ import {
 import { requiresPlugin, validatePluginState, normalizeState } from './state-machine.js';
 import { sanitizeChat } from './prompt-migration.js';
 import { installTauriAgentTransport } from './tauri-agent-transport.js';
+import { applySystemPromptPreference } from './system-prompt-settings.js';
+import { applyTauriAgentSystemPromptPreference } from './tauri-system-prompt.js';
 import {
     applyTauriParameters,
     hasExplicitTauriState,
@@ -291,6 +293,7 @@ function markPayload(data, state, options) {
         startedAt: existing?.startedAt ?? options.startedAt,
     });
     marked[REQUEST_STATE] = {
+        ...(existing ?? {}),
         state: normalizeState(state),
         ...(metadata ?? {}),
     };
@@ -370,6 +373,7 @@ function notifyBlocked(notifyError, localize, error) {
  */
 export function installTauriTransport({
     context = {},
+    getContext = () => context,
     stateProvider = () => DEFAULT_STATE,
     target = globalThis,
     yaml,
@@ -377,6 +381,8 @@ export function installTauriTransport({
     messageCosts,
     getPromptInspector = () => null,
     getPromptMigration = () => null,
+    getCacheBoundary = () => null,
+    getBillingClient = () => null,
     captureUsageContext = () => null,
     getUsagePrice = () => null,
     notifyError = () => {},
@@ -414,7 +420,10 @@ export function installTauriTransport({
             migration?.confirmFinalPrompt?.({ messages, reason, ordinal: migration.snapshot?.().ordinal });
         } catch { /* Final diagnostics do not change request handling. */ }
     }
-    function prepareAgentParameters(parameters, metadata) {
+    async function prepareAgentParameters(parameters, metadata, dispatch) {
+        parameters = await applyTauriAgentSystemPromptPreference(parameters, {
+            api: target.__TAURITAVERN__?.api, getContext, dispatch,
+        });
         const source = sourceOf(parameters);
         if (!isGoogleSource(source) || (!metadata?.state && !hasExplicitTauriState(parameters, { yaml }))) return parameters;
         try {
@@ -442,6 +451,7 @@ export function installTauriTransport({
         const state = stateForEvent(data);
         try {
             const prepared = applyTauriParameters(data, state, { yaml });
+            applySystemPromptPreference(prepared, getContext());
             replacePayload(data, prepared);
             // Mark only after successful parameter application.  A malformed
             // exclude list is rejected again at the final fetch boundary.
@@ -452,6 +462,9 @@ export function installTauriTransport({
                 startedAt: Date.now(),
             });
             data[REQUEST_STATE] = marked[REQUEST_STATE];
+            if (data[REQUEST_STATE].background !== true && !data[REQUEST_STATE].cacheBoundaryToken) {
+                data[REQUEST_STATE].cacheBoundaryToken = safeCall(() => getCacheBoundary()?.captureRequest?.(data)) ?? null;
+            }
             if (data[REQUEST_STATE].background !== true && !data[REQUEST_STATE].messageCostToken) {
                 data[REQUEST_STATE].messageCostToken = observeCost('capture', data, data[REQUEST_STATE].chatId) ?? null;
             }
@@ -599,6 +612,7 @@ export function installTauriTransport({
             if (abortedMetadata?.background !== true && abortedMetadata?.messageCostToken) {
                 observeCost('failed', abortedMetadata.messageCostToken);
             }
+            safeCall(() => getCacheBoundary()?.cancelRequest?.(abortedMetadata?.cacheBoundaryToken));
             signalAbort(signal);
         }
         // Request.clone().text() can yield after the active chat changes.  A
@@ -622,6 +636,7 @@ export function installTauriTransport({
         const costToken = requestMetadata?.background === true ? null : requestMetadata?.messageCostToken;
         const source = sourceOf(data);
         if (!isGoogleSource(source)) {
+            safeCall(() => getCacheBoundary()?.cancelRequest?.(requestMetadata?.cacheBoundaryToken));
             delete data[REQUEST_STATE];
             signalAbort(signal);
             const inspection = await reservePrompt(data, signal, requestMetadata, fallbackChatId);
@@ -670,6 +685,11 @@ export function installTauriTransport({
                 }
             }
             prepared = applyTauriParameters(data, validationState, { yaml });
+            applySystemPromptPreference(prepared, getContext());
+            safeCall(() => getCacheBoundary()?.applyRequest?.(prepared, {
+                background: requestMetadata?.background === true,
+                token: requestMetadata?.cacheBoundaryToken,
+            }));
             signalAbort(signal);
             const samePricingIdentity = requestMetadata
                 && requestMetadata.source === sourceOf(prepared)
@@ -694,6 +714,14 @@ export function installTauriTransport({
                 price: finalPrice !== undefined ? finalPrice : (samePricingIdentity ? undefined : null),
                 startedAt: requestMetadata?.startedAt ?? fallbackStartedAt,
             });
+            try {
+                await getBillingClient()?.applyLabels?.(prepared, {
+                    chatId: usageMetadata?.chatId, requestId: usageMetadata?.id,
+                });
+            } catch (error) {
+                try { notifyWarning(localize(error?.translationKey ?? 'vertex_paygo.billing.error_operation')); }
+                catch { /* Optional billing attribution cannot prevent generation. */ }
+            }
             if (costToken) observeCost('prepared', costToken, usageMetadata?.id, {
                 chatId: usageMetadata?.chatId,
                 model: modelOf(prepared), source: sourceOf(prepared),
@@ -705,6 +733,7 @@ export function installTauriTransport({
             signalAbort(signal);
             if (costToken) observeCost('started', costToken);
             dispatched = true;
+            applySystemPromptPreference(prepared, getContext());
             const body = JSON.stringify(prepared);
             if (usageMetadata && typeof usageClient?.captureRequest === 'function') {
                 try {
@@ -721,6 +750,7 @@ export function installTauriTransport({
             const observed = await callObservation(usageClient, response, usageMetadata, signal);
             return costToken ? observeCost('response', costToken, observed, signal) ?? observed : observed;
         } catch (error) {
+            safeCall(() => getCacheBoundary()?.cancelRequest?.(requestMetadata?.cacheBoundaryToken));
             void observePrompt(inspection, dispatched ? 'finishRequest' : 'cancelRequest', { failed: true });
             callFailure(usageClient, error, usageMetadata);
             if (costToken) observeCost('failed', costToken);

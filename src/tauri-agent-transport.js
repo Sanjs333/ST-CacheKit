@@ -131,7 +131,7 @@ export function installTauriAgentTransport({ target = globalThis, requestStateKe
         }
         try {
             if (!prepareParameters || !object(parameters)) return dispatch(this, command, args, extras, snapshot);
-            const prepared = prepareParameters(parameters, metadata);
+            const prepared = prepareParameters(parameters, metadata, { command, dto, snapshot });
             const continueDispatch = next => {
                 if (!object(next)) throw new TypeError('Agent 参数准备接口必须返回对象。');
                 const preparedSnapshot = next === parameters ? snapshot

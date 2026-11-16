@@ -40,7 +40,7 @@ function details(value) {
     });
 }
 function exactUsage(value) {
-    const source = value?.usageMetadata ?? value?.usage;
+    const source = value?.usageMetadata;
     if (!source || typeof source !== 'object' || Array.isArray(source)) return null;
     const out = {};
     for (const key of COUNTS) { const count = integer(source[key]); if (count !== undefined) out[key] = count; }
@@ -55,28 +55,39 @@ function normalizedUsage(value) {
     const source = value?.usage;
     if (!source || typeof source !== 'object') return null;
     const pick = (...keys) => keys.map(key => integer(source[key])).find(item => item !== undefined);
-    const nestedCounts = Array.isArray(source.prompt_tokens_details)
-        ? source.prompt_tokens_details.map(item => integer(item?.cached_tokens)).filter(item => item !== undefined) : [];
-    const nestedCached = integer(source.prompt_tokens_details?.cached_tokens)
-        ?? (nestedCounts.length ? nestedCounts.reduce((sum, item) => sum + item, 0) : undefined);
+    const promptDetails = source.prompt_tokens_details ?? source.input_tokens_details;
+    const nestedCounts = Array.isArray(promptDetails)
+        ? promptDetails.map(item => integer(item?.cached_tokens)).filter(item => item !== undefined) : [];
+    const nestedCached = integer(promptDetails?.cached_tokens)
+        ?? (nestedCounts.length ? integer(nestedCounts.reduce((sum, item) => sum + item, 0)) : undefined);
+    const reasoning = integer(source.completion_tokens_details?.reasoning_tokens)
+        ?? integer(source.output_tokens_details?.reasoning_tokens);
     const out = {
         promptTokenCount: pick('promptTokenCount', 'inputTokens', 'input_tokens', 'prompt_tokens', 'total_input_tokens'),
         cachedContentTokenCount: pick('cachedContentTokenCount', 'cachedInputTokens', 'cached_input_tokens', 'cache_read_input_tokens', 'total_cached_tokens') ?? nestedCached,
         candidatesTokenCount: pick('candidatesTokenCount', 'outputTokens', 'output_tokens', 'completion_tokens', 'total_output_tokens'),
-        thoughtsTokenCount: pick('thoughtsTokenCount', 'thoughtTokens', 'thought_tokens', 'reasoning_tokens', 'total_thought_tokens'),
+        thoughtsTokenCount: pick('thoughtsTokenCount', 'thoughtTokens', 'thought_tokens', 'reasoning_tokens', 'total_thought_tokens') ?? reasoning,
     };
+    // OpenAI completion/output tokens already include reasoning tokens; the
+    // ledger's candidates and thoughts are priced separately.
+    if (reasoning !== undefined && pick('candidatesTokenCount', 'outputTokens', 'total_output_tokens') === undefined
+        && out.candidatesTokenCount !== undefined) {
+        if (reasoning <= out.candidatesTokenCount) out.candidatesTokenCount -= reasoning;
+        else delete out.candidatesTokenCount;
+    }
     for (const key of Object.keys(out)) if (out[key] === undefined) delete out[key];
     if (out.promptTokenCount === undefined && out.candidatesTokenCount === undefined) return null;
     out.cacheCountStatus = out.cachedContentTokenCount !== undefined ? 'reported' : 'omitted';
     const suppliedCaches = ['cachedContentTokenCount', 'cachedInputTokens', 'cached_input_tokens', 'cache_read_input_tokens', 'total_cached_tokens']
-        .map(key => source[key]).concat(Array.isArray(source.prompt_tokens_details)
-            ? source.prompt_tokens_details.map(item => item?.cached_tokens) : [source.prompt_tokens_details?.cached_tokens]);
+        .map(key => source[key]).concat(Array.isArray(promptDetails)
+            ? promptDetails.map(item => item?.cached_tokens) : [promptDetails?.cached_tokens]);
     if (suppliedCaches.some(item => item != null && integer(item) === undefined)) out.cacheCountStatus = 'invalid';
-    if (nestedCounts.length && nestedCounts.length !== source.prompt_tokens_details.length
+    if (nestedCounts.length && nestedCounts.length !== promptDetails.length
         && out.cacheCountStatus !== 'invalid'
         && pick('cachedContentTokenCount', 'cachedInputTokens', 'cached_input_tokens', 'cache_read_input_tokens', 'total_cached_tokens') === undefined) {
         out.cacheCountStatus = 'mixed';
     }
+    if (nestedCounts.length && nestedCached === undefined) out.cacheCountStatus = 'invalid';
     return out;
 }
 function usageEnvelope(value) {

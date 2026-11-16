@@ -72,7 +72,7 @@ function validDate(value) {
 }
 
 /** Build exactly the requested scope; a request ID is independent of the open chat. */
-export function billingQuery({ startDate, endDate, scope = 'project', chatId, requestId } = {}, localize = createLocalizer()) {
+export function billingQuery({ startDate, endDate, scope = 'project', chatId, requestId } = {}, localize = createLocalizer(), { allowUsageRequestIds = false } = {}) {
     if (!validDate(startDate) || !validDate(endDate)) invalidBilling('error_dates', localize);
     const span = (Date.parse(endDate) - Date.parse(startDate)) / 86400000;
     if (span < 0 || span > 30) invalidBilling('error_date_range', localize);
@@ -84,7 +84,7 @@ export function billingQuery({ startDate, endDate, scope = 'project', chatId, re
         query.chatId = chatId;
     }
     if (scope === 'request') {
-        if (typeof requestId !== 'string' || !/^[a-z0-9_-]{1,63}$/.test(requestId)) invalidBilling('error_request_id', localize);
+        if (typeof requestId !== 'string' || !(allowUsageRequestIds ? /^[A-Za-z0-9_-]{1,128}$/ : /^[a-z0-9_-]{1,63}$/).test(requestId)) invalidBilling('error_request_id', localize);
         query.requestId = requestId;
     }
     return query;
