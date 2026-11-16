@@ -48,6 +48,7 @@ const REASON_LABELS = new Set([
     'price_missing', 'long_price_missing', 'traffic_tier_mismatch', 'provisioned_throughput',
     'unsupported_modality', 'cache_exceeds_prompt', 'amount_out_of_range', 'request_pending',
     'request_incomplete', 'request_failed', 'tool_use', 'timing_missing',
+    'cache_count_missing', 'cache_count_mixed', 'cache_count_invalid',
 ]);
 
 function buildCard(documentRef, summary, onClose, localize) {

@@ -48,6 +48,19 @@ export function formatCacheHitRate(value, unknown = '—') {
     return value > 0 && value < 0.001 ? '<0.1%' : `${(value * 100).toFixed(1)}%`;
 }
 
+/** Return a usable cache count, keeping missing/partial provenance unknown. */
+export function cacheTokenCount(record) {
+    const usage = record?.usage;
+    if (!usage || typeof usage !== 'object') return null;
+    if (usage.cacheCountStatus !== undefined && usage.cacheCountStatus !== 'reported') return null;
+    const prompt = tokenCount(usage, 'promptTokenCount');
+    const cached = tokenCount(usage, 'cachedContentTokenCount');
+    if (prompt === undefined || cached === undefined || cached > prompt) return null;
+    // The native adapter can supply an unverified zero when dropping fields.
+    if (record.usageAccuracy === 'tauri-normalized' && cached === 0 && usage.cacheCountStatus !== 'reported') return null;
+    return cached;
+}
+
 /** Compute the prompt-token-weighted shared-cache hit rate for requests. */
 export function calculateCacheHitRate(records) {
     if (!Array.isArray(records) || records.length === 0) return null;
@@ -56,17 +69,11 @@ export function calculateCacheHitRate(records) {
     for (const record of records) {
         const usage = record?.usage;
         if (!record || typeof record !== 'object' || !usage || typeof usage !== 'object') return null;
-        if (usage.cacheCountStatus !== undefined && usage.cacheCountStatus !== 'reported') return null;
+        if (record.status !== undefined && record.status !== 'complete') return null;
         const prompt = tokenCount(usage, 'promptTokenCount');
         if (prompt === undefined) return null;
-        let cached;
-        if (usage.cachedContentTokenCount == null) {
-            if (record.usageAccuracy === 'tauri-normalized') return null;
-            cached = 0;
-        } else {
-            cached = tokenCount(usage, 'cachedContentTokenCount');
-            if (cached === undefined || cached > prompt) return null;
-        }
+        const cached = cacheTokenCount(record);
+        if (cached === null) return null;
         promptTotal += prompt;
         cachedTotal += cached;
         if (!Number.isSafeInteger(promptTotal) || !Number.isSafeInteger(cachedTotal)) return null;
@@ -113,7 +120,10 @@ export function estimateRecord(record, currentPrice = null) {
     if (cachedRaw > prompt) {
         return { status: 'unknown', amount: null, reason: 'cache_exceeds_prompt', priceSource: null };
     }
-    const cached = cachedRaw;
+    const cacheCountKnown = cacheTokenCount(record) !== null;
+    // Mixed continuations may retain a known subtotal. Other untrusted cache
+    // counts must not silently grant a cache discount in the local estimate.
+    const cached = cacheCountKnown || usage.cacheCountStatus === 'mixed' ? cachedRaw : 0;
     const traffic = String(usage.trafficType ?? '').toUpperCase();
     const trafficTier = traffic.includes('FLEX') ? 'flex'
         : traffic.includes('PRIORITY') ? 'priority'
@@ -159,6 +169,9 @@ export function estimateRecord(record, currentPrice = null) {
         + (candidates + thoughts) * rates.output) / 1_000_000;
     if (!Number.isFinite(amount)) return { status: 'unknown', amount: null, reason: 'amount_out_of_range', priceSource: null };
     const partialReasons = [];
+    if (!cacheCountKnown) partialReasons.push(usage.cacheCountStatus === 'mixed' ? 'cache_count_mixed'
+        : usage.cacheCountStatus === 'invalid' ? 'cache_count_invalid' : 'cache_count_missing');
+    if (Array.isArray(usage.invalidUsageFields) && usage.invalidUsageFields.length) partialReasons.push('usage_incomplete');
     if (record?.usageAccuracy === 'tauri-normalized') partialReasons.push('tauri_normalized');
     if ((tokenCount(usage, 'toolUsePromptTokenCount') ?? 0) > 0) partialReasons.push('tool_use');
     if (record?.status !== 'complete') partialReasons.push(`request_${record?.status ?? 'unknown'}`);
@@ -169,6 +182,7 @@ export function estimateRecord(record, currentPrice = null) {
         reasons: partialReasons,
         priceSource: snapshot ? 'snapshot' : 'current',
         longContext: long,
+        cacheCountKnown,
         tokens: { prompt, cached, candidates, thoughts },
     };
 }
@@ -184,6 +198,7 @@ export function summarizeUsage(records, prices = {}) {
     const details = [];
     let amount = 0;
     let cachedTokenCount = 0;
+    let unknownCacheCount = 0;
     let unpricedCount = 0;
     let incompleteCount = 0;
     let estimatedCount = 0;
@@ -193,11 +208,13 @@ export function summarizeUsage(records, prices = {}) {
         details.push({ record, estimate });
         if (estimate.amount !== null) amount += estimate.amount;
         if (estimate.amount !== null) estimatedCount += 1;
-        const cached = tokenCount(record.usage, 'cachedContentTokenCount');
-        const prompt = tokenCount(record.usage, 'promptTokenCount');
-        if (cached !== undefined && prompt !== undefined && cached <= prompt) cachedTokenCount += cached;
+        const cached = cacheTokenCount(record);
+        if (cached !== null && record.status === 'complete') cachedTokenCount += cached;
+        else unknownCacheCount += 1;
         if (estimate.status === 'unpriced') unpricedCount += 1;
         if (estimate.status === 'unknown' || estimate.status === 'partial' || record.status !== 'complete') incompleteCount += 1;
     }
-    return { amount, estimatedCount, cachedTokenCount, cacheHitRate: calculateCacheHitRate([...unique.values()]), unpricedCount, incompleteCount, requestCount: details.length, details };
+    return { amount, estimatedCount, cachedTokenCount: unknownCacheCount ? null : cachedTokenCount,
+        knownCachedTokenCount: cachedTokenCount, unknownCacheCount,
+        cacheHitRate: calculateCacheHitRate([...unique.values()]), unpricedCount, incompleteCount, requestCount: details.length, details };
 }

@@ -9,7 +9,7 @@
 // Display-name changes must keep existing storage and protocol identifiers.
 export const EXTENSION_ID = 'vertex-paygo';
 export const EXTENSION_DISPLAY_NAME = '提示词缓存优化';
-export const CLIENT_VERSION = '1.1.0';
+export const CLIENT_VERSION = '1.1.1';
 export const CONFIG_VERSION = 1;
 export const PROTOCOL_VERSION = 2;
 export const REQUIRED_TRANSPORT = 'loopback-http';
@@ -43,6 +43,8 @@ export const SERVER_ROUTES = Object.freeze({
     LOGS: '/api/plugins/vertex-paygo/logs',
     CLIENT_LOG: '/api/plugins/vertex-paygo/logs/client',
     USAGE: '/api/plugins/vertex-paygo/usage',
+    BILLING_SETTINGS: '/api/plugins/vertex-paygo/billing/settings',
+    BILLING_QUERY: '/api/plugins/vertex-paygo/billing/query',
     UPDATE: '/api/plugins/vertex-paygo/update',
     UPDATE_STATUS: '/api/plugins/vertex-paygo/update/status',
 });

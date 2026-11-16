@@ -29,19 +29,61 @@ function referenceView(current, reference) {
         elapsedMs: Number.isSafeInteger(elapsed) && elapsed >= 0 ? elapsed : null };
 }
 
+function addObservedChanges(add, current, previous, reference, comparison) {
+    const changedScope = previous ? Object.keys(SCOPE_LABELS).filter(key => current[key] !== previous[key]) : [];
+    if (changedScope.length) add('scope_changed', 'observed', `${changedScope.map(key => SCOPE_LABELS[key]).join('、')}发生变化`,
+        '与上一条记录的请求范围不同，不能直接比较其缓存复用。');
+    if (previous && current.tier !== previous.tier) add('tier_changed', 'observed', '请求层级发生变化', '与上一条记录使用的服务层级不同。');
+    if (!reference || comparison.status !== 'compared') return;
+    if (comparison.stablePrefix) add('stable_prefix_boundary', 'observed', comparison.stablePrefix.unchanged ? '独立稳定区保持相同' : '独立稳定区发生变化',
+        `依据历史来源分界比较，参考请求 ${number(comparison.stablePrefix.previousChars)} 字符 → 本轮 ${number(comparison.stablePrefix.currentChars)} 字符；稳定区内容与角色结构${comparison.stablePrefix.unchanged ? '一致' : '不同'}。`);
+    if (!comparison.systemUnchanged) add('system_changed', 'observed', '系统指令发生变化',
+        '系统指令的内容或结构与参考请求不同，或者系统指令被新增、移除。');
+    else if (comparison.firstChangedBlock !== null) add('message_changed', 'observed',
+        comparison.firstChangedBlock === 1 ? '第一块对话内容发生变化' : '对话消息块发生变化',
+        `第 ${comparison.firstChangedBlock} 块与参考请求不同，此前 ${comparison.commonBlocks} 个完整消息块相同。整块指纹不同不代表块内没有相同文本前缀。`);
+    else if (comparison.prefixUnchanged) add('prefix_unchanged', 'observed', '参考请求的完整消息前缀保持一致',
+        `系统指令与参考请求的完整消息块保持一致，共 ${number(comparison.commonTextChars)} 个文本字符。`);
+    if (comparison.previousContentCount !== comparison.currentContentCount) add('message_count_changed', 'observed', '对话消息块数量变化',
+        `参考请求 ${comparison.previousContentCount} 块 → 本轮 ${comparison.currentContentCount} 块。隐藏、移除或合并都可能改变块数，来源需要额外证据。`);
+    const exact = comparison.wireComparison;
+    if (exact) {
+        add('exact_text_prefix', 'observed', '已比较实际发送的文本前缀',
+            `在相同角色与部件结构下，开头 ${number(exact.commonTextChars)} 个文本字符一致；系统指令中一致的前缀为 ${number(exact.systemTextPrefixChars)} 个字符。字符数不是缓存 token 数。`);
+        const difference = exact.firstDifference;
+        if (difference) {
+            const location = difference.field === 'systemInstruction' ? '系统指令' : `第 ${difference.block} 个对话消息块`;
+            add('first_wire_difference', 'observed', '第一处发送内容差异',
+                difference.kind === 'text' ? `${location}，第 ${difference.part} 个文本部件，文本位置 ${number(difference.offset + 1)}。`
+                    : `${location}${difference.part ? `，第 ${difference.part} 个部件` : ''}的${difference.kind === 'role' ? '角色' : '结构或非文本内容'}变化。`);
+            if (exact.sourceHint?.kind === 'worldinfo') add('difference_worldinfo_source', 'observed', '差异位置落在已确认的世界书条目中',
+                `来源组 ID：${exact.sourceHint.groupId}；条目 ID：${exact.sourceHint.itemId}。`);
+            else add('difference_source_unknown', 'unknown', '差异来源尚未定位',
+                '已记录差异所在的发送字段和位置，但没有可验证的预设、历史或世界书来源映射。');
+        }
+    } else if (!comparison.sameBody && comparison.firstChangedBlock !== null) add('text_location_unavailable', 'unknown', '暂无块内逐字差异记录',
+        '当前记录只能比较整块指纹。新请求在同一后端进程中、五分钟内有同范围的成功参考请求时，会保留差异位置；提示词正文不写入账本。');
+    if (comparison.parametersComparable && !comparison.sameParameters) add('parameters_changed', 'observed', '其他请求参数发生变化',
+        '工具、生成配置、思考设置或其他非消息参数的指纹不同。');
+}
+
 export function buildCacheMissAnalysis(current, { previous = null, reference = null, comparison = { status: 'no_previous' } } = {}) {
     const findings = [];
     const add = (code, confidence, title, detail, advice = '') => findings.push({ code, confidence, title, detail, advice });
     const result = { outcome: 'unknown', summary: '', reference: referenceView(current, reference), findings, note: '' };
     const { usage } = current;
+    addObservedChanges(add, current, previous, reference, comparison);
     if (current.status === 'pending') {
         result.outcome = 'pending'; result.summary = '请求仍在生成，等待完整用量后再判断缓存命中。';
         return result;
     }
     if (usage.partial) {
-        result.outcome = 'incomplete'; result.summary = '请求未成功完成，当前用量不足以确定缓存未命中的原因。';
+        result.outcome = 'incomplete'; result.summary = current.status === 'complete'
+            ? '响应已完成，但部分用量字段无效，无法作出可靠的缓存结论。'
+            : '请求未成功完成，当前用量不足以确定缓存未命中的原因。';
         const error = Object.hasOwn(ERROR_FINDINGS, current.errorCode) ? ERROR_FINDINGS[current.errorCode] : null;
         if (error) add(error[0], 'observed', error[1], error[2]);
+        else if (current.status === 'complete') add('usage_invalid', 'observed', '检测到无效用量字段', '后端采集器标记了用量字段异常。');
         else add('request_incomplete', 'observed', current.status === 'failed' ? '请求失败' : '请求未完成',
             current.errorCode ? `记录中的错误码：${current.errorCode}。` : '记录未包含具体的错误原因。');
         result.note = '请求超时、连接中断和用量采集失败描述的是请求过程；缓存的实际到期时间需要上游提供。';
@@ -57,6 +99,7 @@ export function buildCacheMissAnalysis(current, { previous = null, reference = n
         else add('cache_count_missing', 'observed', '没有可用的缓存计数',
             usage.cacheField === 'omitted' ? 'Google 没有返回缓存计数字段；后端为费用估算补齐的 0 不能证明实际返回了 0。'
                 : '记录缺少缓存计数或输入计数，无法判断是否实际未命中。');
+        result.note = '请求变化与缓存计数分别展示；已检测到的变化不能单独证明缓存未命中。';
         return result;
     }
     if (usage.cacheRate > 0) {
@@ -70,6 +113,7 @@ export function buildCacheMissAnalysis(current, { previous = null, reference = n
     result.summary = usage.cacheField === 'unverified'
         ? '记录显示 0%；旧记录没有保留缓存计数的来源，以下分析仅供排查。'
         : usage.cacheField === 'normalized' ? 'TT 兼容格式的用量显示 0%；以下分析仅供排查。'
+            : usage.cacheField === 'default-zero' ? '完整的 Google 官方响应省略了缓存零值，按协议默认值记录为 0%。'
             : 'Google 返回的缓存计数为 0。以下列出检测到的变化和可能原因。';
     result.note = 'Google 未返回具体的未命中原因或隐式缓存的实际到期时间。请求间隔只能作为线索，无法据此确认缓存过期。';
     if (usage.cacheField === 'unverified') add('legacy_zero', 'unknown', '旧记录中的 0 可能是补齐值',
@@ -79,12 +123,6 @@ export function buildCacheMissAnalysis(current, { previous = null, reference = n
     if (current.preview.captureKind === 'tauri-frontend') {
         result.note += ' 结构摘要来自 TT 前端发送给宿主的请求，宿主可能继续转换提示词；前端变化只能作为上游缓存的排查线索。';
     }
-
-    const changedScope = previous ? Object.keys(SCOPE_LABELS).filter(key => current[key] !== previous[key]) : [];
-    if (changedScope.length) add('scope_changed', 'observed', `${changedScope.map(key => SCOPE_LABELS[key]).join('、')}发生变化`,
-        '与上一条记录的请求范围不同，不能假定沿用上一条请求的缓存。', '在同一模型、来源和区域内观察连续请求的命中情况。');
-    if (previous && current.tier !== previous.tier) add('tier_changed', 'observed', '请求层级发生变化',
-        '与上一条记录使用的服务层级不同；层级变化本身不能证明缓存失效。');
 
     const currentAggregate = multipleRequests(current);
     const aggregate = currentAggregate || multipleRequests(reference);
@@ -105,21 +143,6 @@ export function buildCacheMissAnalysis(current, { previous = null, reference = n
             '当前聊天最近的记录中，没有同模型、来源和区域的成功请求可作参考；这不能证明是首次请求。',
             '完成一次请求后，在短时间内继续发送具有相同开头内容的请求。');
     } else if (comparison.status === 'compared') {
-        if (!comparison.systemUnchanged) add('system_changed', 'observed', '系统指令发生变化',
-            '与参考请求的系统指令指纹不同，或系统指令被新增、移除；共同缓存前缀可能缩短。',
-            '检查开头的系统提示词、动态宏和世界书内容，尽量保持固定内容稳定。');
-        else if (comparison.firstChangedBlock !== null) add('message_changed', 'observed',
-            comparison.firstChangedBlock === 1 ? '开头消息块发生变化' : '历史消息块发生变化',
-            `第 ${comparison.firstChangedBlock} 个完整消息块与参考请求不同，此前 ${comparison.commonBlocks} 个消息块相同。块内仍可能保留相同文本前缀。`,
-            '检查世界书顺序、动态内容、历史消息裁剪和重新生成；将容易变化的内容放到固定内容之后。');
-        else if (comparison.contentsReduced) add('history_reduced', 'observed', '历史消息数量减少',
-            '与参考请求相比，末尾的历史消息块被移除；无法沿用参考请求的完整前缀。');
-        else if (comparison.prefixUnchanged) add('prefix_unchanged', 'observed', '参考请求的历史前缀保持一致',
-            `系统指令与参考请求的完整消息块保持一致，共 ${number(comparison.commonTextChars)} 个文本字符。字符数不能换算为精确的缓存 token 数。`);
-        else add('prefix_unconfirmed', 'unknown', '只能确认部分相同消息块',
-            '结构列表被截断或消息数量减少，无法确认参考请求的完整前缀仍然一致。');
-        if (comparison.parametersComparable && !comparison.sameParameters) add('parameters_changed', 'observed', '其他请求参数发生变化',
-            '工具、生成配置、思考设置或其他非消息参数的指纹不同；现有摘要无法确定哪个参数影响了缓存。');
         if (!aggregate && !belowMinimum && (comparison.sameBody || comparison.prefixUnchanged)) {
             if (current.preview.hasExplicitCache) add('explicit_cache_unconfirmed', 'unknown', '显式缓存状态需要上游确认',
                 '请求引用了显式缓存，但本地摘要没有缓存资源的有效期，无法确认资源是否过期。');

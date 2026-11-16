@@ -412,6 +412,30 @@ export function createServerClient({ fetchImpl = globalThis.fetch, getRequestHea
             }, LOG_TIMEOUT_MS);
         },
 
+        async readBillingSettings() {
+            const data = await fetchJson(fetchImpl, SERVER_ROUTES.BILLING_SETTINGS, {
+                method: 'GET', headers: { ...getRequestHeaders(), Accept: 'application/json' }, cache: 'no-store',
+            }, HEALTH_TIMEOUT_MS);
+            if (data?.ok !== true || !data.settings || typeof data.settings !== 'object') throw new ServerPluginError('账单设置响应无效。', { code: 'INVALID_BILLING_RESPONSE' });
+            return data.settings;
+        },
+        async saveBillingSettings(settings) {
+            const data = await fetchJson(fetchImpl, SERVER_ROUTES.BILLING_SETTINGS, {
+                method: 'POST', headers: { ...getRequestHeaders(), Accept: 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings), cache: 'no-store',
+            }, HEALTH_TIMEOUT_MS);
+            if (data?.ok !== true || !data.settings) throw new ServerPluginError('账单设置响应无效。', { code: 'INVALID_BILLING_RESPONSE' });
+            return data.settings;
+        },
+        async readBilling(query) {
+            const data = await fetchJson(fetchImpl, SERVER_ROUTES.BILLING_QUERY, {
+                method: 'POST', headers: { ...getRequestHeaders(), Accept: 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify(query), cache: 'no-store',
+            }, 90_000);
+            if (data?.ok !== true || data.kind !== 'billing-export' || !Array.isArray(data.rows)) throw new ServerPluginError('账单结果响应无效。', { code: 'INVALID_BILLING_RESPONSE' });
+            return data;
+        },
+
         async preparePromptInspector(payload) {
             return fetchInspectorJson(fetchImpl, '/api/plugins/vertex-paygo/prompt-inspector', {
                 method: 'POST', headers: { ...getRequestHeaders(), Accept: 'application/json', 'Content-Type': 'application/json' },

@@ -130,8 +130,14 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
         && generation.scope === scope() && (!token || token === generation) && !generation.signal?.aborted;
     function publish(value) {
         if (destroyed) return;
+        let requestScope = null;
+        try {
+            const current = getContext(), identity = completionIdentity(current), chatId = current?.getCurrentChatId?.();
+            if (identity && typeof chatId === 'string' && chatId) requestScope = { chatId, ...identity };
+        } catch { /* Missing scope cannot establish a request boundary. */ }
+        const snapshot = { ...value, generationOrdinal: generation?.ordinal ?? null, requestScope };
         for (const callback of [onSourceSnapshot, ...sourceListeners]) {
-            try { callback(structuredClone(value)); } catch { /* Observers never alter generation. */ }
+            try { callback(structuredClone(snapshot)); } catch { /* Observers never alter generation. */ }
         }
     }
     function clear({ preserveLast = false } = {}) {
@@ -1004,6 +1010,7 @@ export async function installPromptMigrationRuntime({ context, getContext = () =
                 id: 'prompt:' + source.identifier, identifier: source.identifier, label: verifiedDepth && source.label || source.name || source.identifier,
                 text: message.content, role: message.role, position: verifiedDepth && source.depthGroup ? 1 : source.injection_position,
                 depth: verifiedDepth && source.depthGroup ? source.depthGroup.depth : source.injection_depth,
+                ...(verifiedDepth && source.historyInput && !source.depthGroup ? { kind: 'history', historyInput: true } : {}),
                 ...(verifiedDepth && source.depthGroup ? { kind: 'extension', aggregate: true, inputs: source.depthGroup.inputs, priority: source.depthGroup.priority } : {}),
                 ...((source.templateText ?? source.text) !== message.content
                     ? { originalText: source.templateText ?? source.text } : {}),

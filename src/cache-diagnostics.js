@@ -4,6 +4,9 @@ import { createCacheDiagnosticsViewer } from './cache-diagnostics-view.js';
 import { bindExtensionTheme } from './theme.js';
 import { createExtensionDialog } from './dialog.js';
 import { buildCacheMissAnalysis, sameCacheScope } from './cache-miss-analysis.js';
+import { compareRequestPreviews, projectCacheBoundary, projectRequestComparison } from './cache-request-comparison.js';
+import { cacheTokenCount } from './cost-model.js';
+export { compareRequestPreviews } from './cache-request-comparison.js';
 
 const count = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
 const hash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value) ? value : null;
@@ -15,9 +18,14 @@ function contentView(content) {
     if (!content || typeof content !== 'object') return null;
     const kinds = {};
     for (const kind of KINDS) if (count(content.kinds?.[kind]) !== null) kinds[kind] = content.kinds[kind];
+    const textSegments = Array.isArray(content.textSegments) ? content.textSegments.slice(0, 64).filter(segment =>
+        Number.isSafeInteger(segment?.part) && segment.part >= 1 && segment.part <= content.partCount
+        && count(segment.textChars) !== null && hash(segment.fingerprint)).map(segment => ({ part: segment.part,
+        textChars: segment.textChars, fingerprint: hash(segment.fingerprint) })) : [];
     return { role: ['user', 'model', 'system', 'tool'].includes(content.role) ? content.role : 'unknown',
         partCount: count(content.partCount), textChars: count(content.textChars), textBytes: count(content.textBytes),
-        kinds, thoughtParts: count(content.thoughtParts), signedParts: count(content.signedParts), fingerprint: hash(content.fingerprint) };
+        kinds, thoughtParts: count(content.thoughtParts), signedParts: count(content.signedParts), fingerprint: hash(content.fingerprint),
+        textSegments, omittedTextSegments: count(content.omittedTextSegments) };
 }
 
 // Project the server response again. Never render an arbitrary record/body or
@@ -45,6 +53,8 @@ export function requestPreviewView(preview) {
         systemInstruction,
         contentCount: count(preview.contentCount), contents: preview.contents.slice(0, 64).map(contentView),
         omittedContents: count(preview.omittedContents), generation, toolCount: count(preview.toolCount),
+        requestComparison: projectRequestComparison(preview.requestComparison),
+        cacheBoundary: projectCacheBoundary(preview.cacheBoundary),
         hasExplicitCache: preview.hasExplicitCache === true, hasContinuationToken: preview.hasContinuationToken === true,
         serviceTier: ['standard', 'flex', 'priority'].includes(preview.serviceTier) ? preview.serviceTier : null };
 }
@@ -59,47 +69,12 @@ export function cacheUsageView(record) {
             : cachedTokens === null ? record?.usage?.cachedContentTokenCount == null ? 'missing' : 'invalid'
                 : !valid ? 'invalid' : record?.usageAccuracy === 'tauri-normalized' && cachedTokens === 0 ? 'normalized'
                     : provenance === undefined && cachedTokens === 0 ? 'unverified' : 'reported';
-    const usable = valid && ['reported', 'unverified', 'normalized'].includes(cacheField);
-    return { promptTokens, cachedTokens: usable ? cachedTokens : null,
-        cacheRate: usable && promptTokens > 0 ? cachedTokens / promptTokens : null,
+    const usableCount = cacheTokenCount(record);
+    return { promptTokens, cachedTokens: usableCount,
+        cacheRate: record?.status === 'complete' && usableCount !== null && promptTokens > 0 ? usableCount / promptTokens : null,
         outputTokens: count(record?.usage?.candidatesTokenCount), thinkingTokens: count(record?.usage?.thoughtsTokenCount),
-        cacheField,
-        partial: record?.status !== 'complete' };
-}
-
-export function compareRequestPreviews(current, previous) {
-    if (!previous) return { status: 'no_previous' };
-    const left = current.preview, right = previous.preview;
-    if (left.status !== 'available' || right.status !== 'available') return { status: 'unavailable' };
-    if (!left.epoch || left.epoch !== right.epoch) return { status: 'different_epoch' };
-    if (left.captureKind !== right.captureKind) return { status: 'different_capture' };
-    if (['model', 'source', 'region'].some(key => current[key] !== previous[key])) return { status: 'different_scope' };
-    const known = value => value.contentCount !== null && value.omittedContents !== null
-        && value.contentCount === value.contents.length + value.omittedContents
-        && (value.systemInstruction === null || !!value.systemInstruction?.fingerprint)
-        && value.contents.every(content => !!content?.fingerprint);
-    if (!known(left) || !known(right)) return { status: 'unavailable' };
-    const same = (a, b) => a?.fingerprint && b?.fingerprint && a.role === b.role && a.fingerprint === b.fingerprint;
-    const systemUnchanged = left.systemInstruction === null && right.systemInstruction === null
-        || !!same(left.systemInstruction, right.systemInstruction);
-    let commonBlocks = 0, commonTextChars = 0;
-    if (systemUnchanged) {
-        commonTextChars = left.systemInstruction?.textChars ?? 0;
-        while (commonBlocks < Math.min(left.contents.length, right.contents.length)
-            && same(left.contents[commonBlocks], right.contents[commonBlocks])) {
-            commonTextChars += left.contents[commonBlocks].textChars ?? 0;
-            commonBlocks++;
-        }
-    }
-    const sameBody = !!left.bodyFingerprint && left.bodyFingerprint === right.bodyFingerprint;
-    return { status: 'compared', systemUnchanged, commonBlocks, commonTextChars, sameBody,
-        firstChangedBlock: systemUnchanged && commonBlocks < Math.min(left.contents.length, right.contents.length) ? commonBlocks + 1 : null,
-        prefixUnchanged: sameBody || systemUnchanged && right.omittedContents === 0 && commonBlocks === right.contents.length
-            && left.contentCount >= right.contentCount,
-        contentsReduced: left.contentCount < right.contentCount,
-        parametersComparable: !!left.parametersFingerprint && !!right.parametersFingerprint,
-        sameParameters: !!left.parametersFingerprint && left.parametersFingerprint === right.parametersFingerprint,
-        bounded: (left.omittedContents ?? 0) > 0 || (right.omittedContents ?? 0) > 0 };
+        cacheField: cacheField === 'reported' && record?.usage?.cacheCountSource === 'google-default-zero' ? 'default-zero' : cacheField,
+        partial: record?.status !== 'complete' || Array.isArray(record?.usage?.invalidUsageFields) && record.usage.invalidUsageFields.length > 0 };
 }
 
 export function buildCacheDiagnostics(records) {
@@ -131,7 +106,10 @@ const comparisonText = value => {
     if (value.status === 'different_scope') return '模型、来源或区域不同，无法比较。';
     if (value.status === 'different_capture') return '结构摘要的采集阶段不同，无法比较。';
     if (value.status !== 'compared') return '结构摘要不完整，无法比较。';
-    return `与上一条记录比较：系统指令${value.systemUnchanged ? '相同' : '不同'}；前 ${value.commonBlocks} 个完整消息块相同，共 ${value.commonTextChars} 个文本字符（含相同系统指令）；其他参数${value.parametersComparable ? value.sameParameters ? '相同' : '不同' : '未知'}。${value.bounded ? '结构列表已截断，比较范围有限。' : ''}`;
+    const exact = value.wireComparison;
+    const textComparison = exact ? `实际发送文本的共同前缀：${exact.commonTextChars.toLocaleString('zh-CN')} 个字符（按相同角色与部件结构比较，不是缓存 token 数）。`
+        : '未记录块内逐字比较；完整相同块数为 0 时，仍可能有很长的相同文本前缀。';
+    return `与上一条记录比较：系统指令${value.systemUnchanged ? '相同' : '不同'}；消息 ${value.previousContentCount} → ${value.currentContentCount} 块；前 ${value.commonBlocks} 个完整消息块相同，共 ${value.commonTextChars} 个文本字符（含相同系统指令）；其他参数${value.parametersComparable ? value.sameParameters ? '相同' : '不同' : '未知'}。${textComparison}${value.bounded ? '结构列表已截断，比较范围有限。' : ''}`;
 };
 
 export function createCacheDiagnosticsUi({ serverClient, getChatId, context, documentRef = globalThis.document,

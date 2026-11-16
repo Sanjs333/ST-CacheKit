@@ -4,7 +4,7 @@
  * License, v. 2.0.
  */
 
-import { calculateCacheHitRate, estimateRecord, priceKey } from './cost-model.js';
+import { cacheTokenCount, calculateCacheHitRate, estimateRecord, priceKey } from './cost-model.js';
 import { createLocalizer } from './i18n.js';
 
 function count(value) {
@@ -70,7 +70,7 @@ export function summarizeMessageCost(snapshot, prices = {}) {
     let streamTimingCount = 0;
     let firstTokenObserved = null;
     let thinkingUnknown = false;
-    let cacheUnknown = false;
+    let cacheUnknown = unique.missingIdCount > 0;
 
     for (let index = 0; index < requests.length; index += 1) {
         const request = requests[index];
@@ -79,6 +79,7 @@ export function summarizeMessageCost(snapshot, prices = {}) {
         const pending = !unavailable && (request.status === 'pending' || record?.status === 'pending');
         summary.unavailable ||= unavailable;
         summary.pending ||= pending;
+        cacheUnknown ||= unavailable || pending;
         if (unavailable) reasons.add('unavailable');
         else if (pending) reasons.add('pending');
 
@@ -99,6 +100,7 @@ export function summarizeMessageCost(snapshot, prices = {}) {
         }
 
         if (!record || typeof record !== 'object') {
+            cacheUnknown = true;
             summary.missingRequestCount += 1;
             if (!pending && !unavailable) {
                 summary.unavailable = true;
@@ -129,11 +131,11 @@ export function summarizeMessageCost(snapshot, prices = {}) {
         // Absence in that normalized shape is not evidence of zero usage.
         if (record.usageAccuracy === 'tauri-normalized') {
             thinkingUnknown ||= record.usage?.thoughtsTokenCount == null;
-            cacheUnknown ||= record.usage?.cachedContentTokenCount == null;
         }
         const thinking = record.usage?.thoughtsTokenCount == null ? 0 : count(record.usage.thoughtsTokenCount);
-        const cached = record.usage?.cachedContentTokenCount == null ? 0 : count(record.usage.cachedContentTokenCount);
-        if (prompt === null || output === null || thinking === null || cached === null || cached > prompt) {
+        const cached = cacheTokenCount(record);
+        cacheUnknown ||= cached === null || record.status !== 'complete';
+        if (prompt === null || output === null || thinking === null) {
             summary.partial = true;
             continue;
         }
@@ -141,8 +143,10 @@ export function summarizeMessageCost(snapshot, prices = {}) {
         summary.promptTokens += prompt;
         summary.outputTokens += output;
         summary.thinkingTokens += thinking;
-        summary.cachedTokens += cached;
-        summary.uncachedTokens += prompt - cached;
+        if (cached !== null) {
+            summary.cachedTokens += cached;
+            summary.uncachedTokens += prompt - cached;
+        }
 
         if (request.timing?.stream === true && duration !== null && firstToken !== null && duration > firstToken) {
             streamOutput += output + thinking;
@@ -150,7 +154,7 @@ export function summarizeMessageCost(snapshot, prices = {}) {
     }
 
     summary.models = [...models];
-    summary.cacheHitRate = calculateCacheHitRate(requests.map(request => request?.record));
+    summary.cacheHitRate = cacheUnknown ? null : calculateCacheHitRate(requests.map(request => request?.record));
     summary.tiers = [...tiers];
     summary.firstTokenMs = firstTokenObserved;
     summary.durationMs = requests.length > 0 && durationCount === requests.length ? totalDuration : null;
@@ -180,6 +184,9 @@ export function formatMessageMoney(amount) {
 
 export function formatMessageCostLabel(summary, localize = createLocalizer()) {
     const key = 'vertex_paygo.message_cost.';
+    if (summary?.hasAmount && summary.reasons?.some(reason => reason.startsWith('cache_count_'))) {
+        return localize(`${key}label_cache_uncertain`, { amount: formatMessageMoney(summary.amount) });
+    }
     if (summary?.hasAmount) return localize(`${key}${summary.partial ? 'label_partial' : 'label_amount'}`, {
         amount: formatMessageMoney(summary.amount),
     });

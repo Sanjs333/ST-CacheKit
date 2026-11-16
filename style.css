@@ -495,6 +495,22 @@
     }
 }
 
+.vertex-paygo-billing-settings details > summary { cursor: pointer; padding: .5em 0; }
+.vertex-paygo-billing-fields { display: grid; gap: .6em; margin: .8em 0; }
+.vertex-paygo-billing-fields label { display: grid; gap: .25em; }
+.vertex-paygo-billing-fields label.checkbox_label { display: flex; align-items: center; gap: .5em; }
+.vertex-paygo-billing-fields input:not([type="checkbox"]), .vertex-paygo-billing-fields select,
+.vertex-paygo-billing-scope select, .vertex-paygo-billing-settings > details > input { width: 100%; min-width: 0; box-sizing: border-box; }
+.vertex-paygo-billing-actions { display: flex; flex-wrap: wrap; gap: .5em; margin: .8em 0; }
+.vertex-paygo-billing-actions button { flex: 1 1 auto; min-height: 2.5em; }
+.vertex-paygo-billing-dates { display: flex; align-items: center; gap: .4em; margin: .8em 0; flex-wrap: wrap; }
+.vertex-paygo-billing-dates label { display: grid; gap: .25em; min-width: 0; flex: 1 1 10em; }
+.vertex-paygo-billing-dates input { width: 100%; min-width: 0; box-sizing: border-box; }
+.vertex-paygo-billing-scope { display: grid; gap: .25em; margin-bottom: .5em; }
+.vertex-paygo-billing-results { overflow-x: auto; margin: .6em 0; }
+.vertex-paygo-billing-results table { width: 100%; min-width: 38em; border-collapse: collapse; }
+.vertex-paygo-billing-results th, .vertex-paygo-billing-results td { padding: .35em; text-align: left; border-bottom: 1px solid var(--vertex-paygo-outline, currentColor); }
+
 #vertex-paygo-maintenance-group .vertex-paygo-general-server-row {
     flex-wrap: nowrap;
     padding: 0;

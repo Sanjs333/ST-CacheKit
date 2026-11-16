@@ -4,7 +4,7 @@
  * License, v. 2.0.
  */
 
-import { calculateCacheHitRate, formatCacheHitRate, summarizeUsage } from './cost-model.js';
+import { cacheTokenCount, calculateCacheHitRate, formatCacheHitRate, summarizeUsage } from './cost-model.js';
 import { EXTENSION_DISPLAY_NAME, MAX_USAGE_RECORDS_PER_CHAT } from './constants.js';
 import { createLocalizer } from './i18n.js';
 import { createPriceSettingsUi } from './price-settings-ui.js';
@@ -69,6 +69,9 @@ function statusText(record, estimate) {
         price_missing: '价格未配置', long_price_missing: '长上下文价格未配置',
         tool_use: '含工具调用，仅部分估算', request_incomplete: '用量不完整，仅部分估算',
         tauri_normalized: 'TauriTavern 用量信息可能不完整，仅部分估算',
+        cache_count_missing: '缓存计数缺失，暂按无缓存折扣估算',
+        cache_count_mixed: '子请求缓存计数不完整，仅按已知部分估算',
+        cache_count_invalid: '缓存计数无效，暂按无缓存折扣估算',
     };
     if (estimate.reason && reasons[estimate.reason]) {
         const suffix = estimate.priceSource === 'current' && estimate.amount !== null ? '（按当前价格）' : '';
@@ -184,9 +187,10 @@ export function createCostUi({
                 const latest = result.details.at(-1)?.estimate;
                 const subtotal = result.estimatedCount ? money(result.amount) : '—';
                 const latestAmount = latest?.amount === null || latest === undefined ? '—' : money(latest.amount);
-                summary.textContent = `已估算小计 ${subtotal} · 最近一次 ${latestAmount} · ${result.requestCount} 次请求 · 缓存命中 ${result.cachedTokenCount} token · 待计价 ${result.unpricedCount} · 不完整 ${result.incompleteCount}`;
+                summary.textContent = `已估算小计 ${subtotal} · 最近一次 ${latestAmount} · ${result.requestCount} 次请求 · 缓存命中 ${result.cachedTokenCount ?? '未知'} token · 待计价 ${result.unpricedCount} · 不完整 ${result.incompleteCount}`;
+                if (result.unknownCacheCount) summary.textContent += ` · ${result.unknownCacheCount} 次请求的缓存计数待确认`;
                 summary.textContent += ` · ${localize('vertex_paygo.costs.cache_hit_rate')} ${cacheRate(result.cacheHitRate)}`;
-                summary.title = localize('vertex_paygo.costs.cache_hit_rate_hint');
+                summary.title = `${localize('vertex_paygo.costs.cache_hit_rate_hint')}。费用为本地估算，未读取谷歌账单。`;
                 if (response.truncated) summary.append(element(documentRef, 'strong', 'vertex-paygo-cost-truncated', ' · 记录已截断，仅统计返回的部分账本'));
                 tableWrap.replaceChildren();
                 if (records.some(record => record.usageAccuracy === 'tauri-normalized')) {
@@ -196,7 +200,7 @@ export function createCostUi({
                 const table = element(documentRef, 'table', 'vertex-paygo-cost-table');
                 const head = element(documentRef, 'thead');
                 const headRow = element(documentRef, 'tr');
-                for (const title of ['请求时间', '模型 / 层级', '状态', '输入', '缓存', localize('vertex_paygo.costs.cache_hit_rate'), '输出', '思考', '费用']) headRow.append(element(documentRef, 'th', '', title));
+                for (const title of ['请求时间', '模型 / 层级', '状态', '输入', '缓存', localize('vertex_paygo.costs.cache_hit_rate'), '输出', '思考', '费用估算']) headRow.append(element(documentRef, 'th', '', title));
                 head.append(headRow);
                 const body = element(documentRef, 'tbody');
                 tableWrap.append(element(documentRef, 'p', 'vertex-paygo-cost-retention-note',
@@ -214,11 +218,11 @@ export function createCostUi({
                         element(documentRef, 'td', '', `${choiceLabel('source', record.source || '')} · ${record.model || '未知模型'} / ${record.tier || '未知层级'}`),
                         status,
                         element(documentRef, 'td', '', count('promptTokenCount')),
-                        element(documentRef, 'td', '', count('cachedContentTokenCount')),
+                        element(documentRef, 'td', '', cacheTokenCount(record) ?? '—'),
                         element(documentRef, 'td', '', cacheRate(calculateCacheHitRate([record]))),
                         element(documentRef, 'td', '', count('candidatesTokenCount')),
                         element(documentRef, 'td', '', count('thoughtsTokenCount')),
-                        element(documentRef, 'td', '', estimate.amount === null ? '—' : money(estimate.amount)),
+                        element(documentRef, 'td', '', estimate.amount === null ? '—' : `≈ ${money(estimate.amount)}`),
                     );
                     body.append(row);
                 }

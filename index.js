@@ -30,6 +30,9 @@ import { createWorldInfoStabilityUi } from './src/worldinfo-stability-ui.js';
 import { createCacheDiagnosticsUi } from './src/cache-diagnostics.js';
 import { createPromptInspectorController } from './src/prompt-inspector-controller.js';
 import { createPromptInspectorUi } from './src/prompt-inspector-ui.js';
+import { createSystemPromptSettings } from './src/system-prompt-settings.js';
+import { createBillingUi } from './src/billing-ui.js';
+import { createCachePrefixBoundary, createCachePrefixBoundarySettings } from './src/cache-prefix-boundary.js';
 
 let initialized = false;
 let controller = null;
@@ -48,6 +51,10 @@ let promptInspectorController = null;
 let promptInspectorUi = null;
 let requestHook = null;
 let requestHookContext = null;
+let systemPromptSettings = null;
+let billingUi = null;
+let cachePrefixBoundary = null;
+let cachePrefixBoundarySettings = null;
 
 globalThis.vertexPayGoGemini4GenerateInterceptor = chat => {
     try { gemini4Host?.captureMessages(chat); }
@@ -142,8 +149,12 @@ export async function init() {
         });
         await waitForVertexControls(10_000, localize);
         gemini4Host = await installGemini4HostCompatibility({ context });
+        try { systemPromptSettings = createSystemPromptSettings({ getContext: () => globalThis.SillyTavern.getContext() }); }
+        catch { console.warn('[提示词缓存优化] System prompt settings are unavailable.'); }
 
         costContext = createCostContext({ getContext: () => globalThis.SillyTavern.getContext() });
+        try { billingUi = createBillingUi({ context, serverClient, getChatId: costContext.getChatId }); }
+        catch { console.warn('[提示词缓存优化] Billing settings are unavailable.'); }
         controller = createPayGoUi({
             context,
             serverClient,
@@ -197,9 +208,18 @@ export async function init() {
             console.warn('[提示词缓存优化] World-info sorting is unavailable.');
         }
         try {
+            cachePrefixBoundary = createCachePrefixBoundary({ getContext: () => globalThis.SillyTavern.getContext(),
+                onChange: () => cachePrefixBoundarySettings?.render() });
+            cachePrefixBoundarySettings = createCachePrefixBoundarySettings({ boundary: cachePrefixBoundary,
+                getContext: () => globalThis.SillyTavern.getContext() });
+        } catch { console.warn('[提示词缓存优化] Source-backed prefix boundary is unavailable.'); }
+        try {
             promptMigration = await installPromptMigrationRuntime({ context, stability: worldInfoStability,
                 getContext: () => globalThis.SillyTavern.getContext(), onChange: () => worldInfoStabilityUi?.render(),
-                onSourceSnapshot: snapshot => promptInspectorController?.observer?.captureRuntimeSnapshot?.(snapshot) });
+                onSourceSnapshot: snapshot => {
+                    promptInspectorController?.observer?.captureRuntimeSnapshot?.(snapshot);
+                    cachePrefixBoundary?.captureRuntimeSnapshot(snapshot);
+                } });
         } catch {
             console.warn('[提示词缓存优化] Prompt migration is unavailable.');
         }
@@ -269,6 +289,7 @@ export async function init() {
             messageCosts,
             worldInfoStability,
             promptInspector: promptInspectorController,
+            cachePrefixBoundary,
         });
         requestHookContext = context;
 
@@ -308,6 +329,10 @@ export async function init() {
         release(() => requestHookContext?.eventSource?.removeListener?.(requestHookContext.eventTypes?.CHAT_COMPLETION_SETTINGS_READY, requestHook));
         release(() => requestHook?.destroy?.());
         requestHook = null; requestHookContext = null;
+        release(() => systemPromptSettings?.destroy()); systemPromptSettings = null;
+        release(() => cachePrefixBoundarySettings?.destroy()); cachePrefixBoundarySettings = null;
+        release(() => cachePrefixBoundary?.destroy()); cachePrefixBoundary = null;
+        release(() => billingUi?.destroy()); billingUi = null;
         release(() => cacheDiagnosticsUi?.destroy());
         cacheDiagnosticsUi = null;
         release(() => promptInspectorUi?.destroy()); promptInspectorUi = null;

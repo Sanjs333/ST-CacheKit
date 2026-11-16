@@ -12,6 +12,7 @@ import {
     localizeGemini4Response, serverSupportsNativeGemini4,
 } from './gemini4-request.js';
 import { createGemini4SignatureTracker } from './gemini4-signatures.js';
+import { CACHE_BOUNDARY_FIELD } from './cache-prefix-boundary.js';
 
 const REQUEST_STATE = '__vertexPayGoRequestState';
 const GENERATE_PATH = '/api/backends/chat-completions/generate';
@@ -66,7 +67,7 @@ function presetState(context, name) {
 }
 
 export function installRequestTransport({ context, stateProvider, target = globalThis, captureUsageContext = () => null,
-    getUsagePrice = () => null, messageCosts, worldInfoStability, promptInspector, ...hookOptions }) {
+    getUsagePrice = () => null, messageCosts, worldInfoStability, promptInspector, cachePrefixBoundary, ...hookOptions }) {
     const origin = hookOptions.origin ?? target.location?.origin;
     const originalFetch = target.fetch;
     if (typeof originalFetch !== 'function') throw new TypeError('当前环境缺少 fetch 请求接口。');
@@ -132,6 +133,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
         data[REQUEST_STATE].worldInfoOrderToken = observeOrder('captureRequest', data, {
             background, chatId: data[REQUEST_STATE].usageChatId,
         });
+        try { data[REQUEST_STATE].cacheBoundaryToken = cachePrefixBoundary?.captureRequest?.(data, { background }); } catch {}
     };
 
     const fetchWrapper = async function payGoFetch(input, init) {
@@ -158,6 +160,8 @@ export function installRequestTransport({ context, stateProvider, target = globa
         // instead of silently letting a paid request bypass preparation.
         if (typeof rawBody !== 'string') throw new TypeError('[提示词缓存优化] Expected a JSON generation request.');
         const data = JSON.parse(rawBody);
+        const hadBoundaryMarker = Object.hasOwn(data, CACHE_BOUNDARY_FIELD);
+        delete data[CACHE_BOUNDARY_FIELD];
         const hadInspectorMarker = Object.hasOwn(data, PROMPT_INSPECTOR_FIELD);
         delete data[PROMPT_INSPECTOR_FIELD];
         const hadOrderMarker = Object.hasOwn(data, '__vertexPayGoNativeOrder');
@@ -166,6 +170,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
         if (Array.isArray(data.messages)) { const cleaned = sanitizeChat(data.messages); cleanedMacros = JSON.stringify(cleaned) !== JSON.stringify(data.messages); data.messages = cleaned; }
         const metadata = data[REQUEST_STATE];
         try { signal?.throwIfAborted(); } catch (error) {
+            try { cachePrefixBoundary?.cancelRequest?.(metadata?.cacheBoundaryToken); } catch {}
             if (metadata?.worldInfoOrderToken) observeOrder('cancelRequest', metadata.worldInfoOrderToken, 'not-sent');
             if (metadata?.messageCostToken) observe('failed', metadata.messageCostToken);
             throw error;
@@ -180,7 +185,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
             signal,
         });
         if (!isGoogleSource(data.chat_completion_source)) {
-            if (!metadata && !inspection) return originalFetch.call(this, input, cleanedMacros || hadInspectorMarker || hadOrderMarker ? { ...init, body: JSON.stringify(data) } : init);
+            if (!metadata && !inspection) return originalFetch.call(this, input, cleanedMacros || hadInspectorMarker || hadOrderMarker || hadBoundaryMarker ? { ...init, body: JSON.stringify(data) } : init);
             delete data[REQUEST_STATE];
             const token = metadata?.worldInfoOrderToken;
             const plan = token ? observeOrder('requestPlan', token, data) : null;
@@ -250,6 +255,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
             });
         } catch (error) {
             if (costToken) observe('failed', costToken);
+            try { cachePrefixBoundary?.cancelRequest?.(metadata?.cacheBoundaryToken); } catch {}
             if (worldInfoToken) observeOrder('cancelRequest', worldInfoToken);
             if (inspection) void observeInspector('cancelRequest', inspection);
             throw error;
@@ -260,11 +266,21 @@ export function installRequestTransport({ context, stateProvider, target = globa
         let googleDispatched = false;
         try {
             signal?.throwIfAborted();
+            if (metadata?.cacheBoundaryToken) {
+                let boundary;
+                try { boundary = await cachePrefixBoundary?.bindRequest?.(metadata.cacheBoundaryToken, data,
+                    { supported: nativeGemini4 && preparedOrder?.nativeGeminiCacheBoundary === true }); } catch {}
+                if (boundary) data[CACHE_BOUNDARY_FIELD] = boundary;
+            }
+            signal?.throwIfAborted();
             if (costToken) observe('started', costToken);
             googleDispatched = true;
             const sending = originalFetch.call(this, requestTarget, { ...init, body: JSON.stringify(data) });
             if (inspection) void observeInspector('markDispatched', inspection);
             let response = await sending;
+            if (metadata?.cacheBoundaryToken && data[CACHE_BOUNDARY_FIELD]) {
+                try { cachePrefixBoundary?.confirmRequest?.(metadata.cacheBoundaryToken, response); } catch {}
+            }
             if (inspection) void observeInspector('finishRequest', inspection, { responseOk: response.ok, httpStatus: response.status });
             if (frontendOrder) observeOrder('confirmFrontendRequest', worldInfoToken, frontendOrder, { responseOk: response.ok });
             else if (worldInfoToken) observeOrder('confirmRequest', worldInfoToken, {
@@ -277,6 +293,7 @@ export function installRequestTransport({ context, stateProvider, target = globa
             if (nativeGemini4) response = await localizeGemini4Response(response, hookOptions.localize);
             return costToken ? observe('response', costToken, response, signal) ?? response : response;
         } catch (error) {
+            try { cachePrefixBoundary?.cancelRequest?.(metadata?.cacheBoundaryToken); } catch {}
             if (costToken) observe('failed', costToken);
             if (worldInfoToken) observeOrder('cancelRequest', worldInfoToken);
             if (inspection) void observeInspector(googleDispatched ? 'finishRequest' : 'cancelRequest', inspection, { failed: true });

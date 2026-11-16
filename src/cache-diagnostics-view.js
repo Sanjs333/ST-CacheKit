@@ -64,7 +64,7 @@ export function createCacheDiagnosticsViewer({ documentRef = globalThis.document
     const selector = make('select', 'text_pole', undefined, { id: 'vertex-paygo-cache-diagnostics-select', 'aria-label': '选择请求记录' });
     const selectLabel = make('label', 'vertex-paygo-cache-selector');
     selectLabel.append(make('span', '', '查看请求'), selector);
-    header.append(heading, make('p', 'vertex-paygo-log-description', '查看当前聊天的缓存命中，以及 0% 时的证据和可能原因。'), selectLabel);
+    header.append(heading, make('p', 'vertex-paygo-log-description', '查看当前聊天的缓存用量、稳定系统提示与实际请求变化。'), selectLabel);
     if (coverageSummary) header.append(make('p', 'vertex-paygo-cache-note', coverageSummary));
     const body = make('div', 'vertex-paygo-cache-viewer-body', undefined, { tabindex: '0' });
     const status = make('p', 'vertex-paygo-log-empty', '', { 'aria-live': 'polite' });
@@ -88,18 +88,33 @@ export function createCacheDiagnosticsViewer({ documentRef = globalThis.document
     const reference = make('p', 'vertex-paygo-cache-note', '', { 'data-cache-reference': '' });
     const findings = make('ul', 'vertex-paygo-cache-findings');
     const analysisNote = make('p', 'vertex-paygo-cache-note', '', { 'data-cache-analysis-note': '' });
-    analysis.append(make('h4', '', '缓存命中原因分析'), analysisSummary, reference, findings, analysisNote);
+    analysis.append(make('h4', '', '缓存用量与请求变化'), analysisSummary, reference, findings, analysisNote);
     const advanced = disclosure('请求结构与前后比较');
     const structure = make('p', 'vertex-paygo-cache-note', '', { id: 'vertex-paygo-cache-diagnostics-structure' });
     const comparison = make('p', 'vertex-paygo-cache-note', '', { id: 'vertex-paygo-cache-diagnostics-comparison' });
     const comparisonNote = make('p', 'vertex-paygo-cache-note', '比较以完整消息块为单位；相同块数为 0 时仍可能存在相同文本前缀。');
+    const blockWrap = make('div', 'vertex-paygo-cost-table-wrap');
+    const blockTable = make('table', 'vertex-paygo-cost-table', undefined, { 'aria-label': '请求消息块对应关系' });
+    const blockHead = make('thead'), blockHeadRow = make('tr');
+    for (const label of ['参考块', '本轮块', '对应情况', '文本长度（字符）']) blockHeadRow.append(make('th', '', label));
+    blockHead.append(blockHeadRow);
+    const blockRows = make('tbody'); blockTable.append(blockHead, blockRows); blockWrap.append(blockTable);
+    const blockNote = make('p', 'vertex-paygo-cache-note', '相同块按内容指纹对齐；变化块只按位置比较。“未配对”可能来自隐藏、合并或内容变化，不能直接认定消息被删除。');
+    const prefixStatus = make('p', 'vertex-paygo-cache-note');
+    const segmentWrap = make('div', 'vertex-paygo-cost-table-wrap');
+    const segmentTable = make('table', 'vertex-paygo-cost-table', undefined, { 'aria-label': '稳定区与历史文本部件' });
+    const segmentHead = make('thead'), segmentHeadRow = make('tr');
+    for (const label of ['消息块', '文本部件', '来源区域', '长度（字符）']) segmentHeadRow.append(make('th', '', label));
+    segmentHead.append(segmentHeadRow);
+    const segmentRows = make('tbody'); segmentTable.append(segmentHead, segmentRows); segmentWrap.append(segmentTable);
     const raw = disclosure('原始结构摘要');
     const preview = make('pre', 'vertex-paygo-log-record-raw', '', { id: 'vertex-paygo-cache-diagnostics-preview' });
-    raw.append(preview); advanced.append(structure, comparison, comparisonNote, raw);
+    raw.append(preview); advanced.append(structure, prefixStatus, segmentWrap, comparison, comparisonNote, blockWrap, blockNote, raw);
     const explanation = disclosure('数据说明');
     explanation.append(make('p', 'vertex-paygo-cache-note', '命中比例 = 缓存 tokens ÷ 输入 tokens。缓存计数缺失或无效时显示未知；字符数与 token 数不同。'),
         make('p', 'vertex-paygo-cache-note', '结构比较用于判断请求是否稳定。缓存命中以 Google 返回用量为准，费用按用量与单价估算。'),
         make('p', 'vertex-paygo-cache-note', '原因分析优先参考当前聊天最近同模型、来源和区域的成功请求。两次请求发起间隔包含生成时间，无法代表云端缓存的实际年龄；记录不覆盖其他聊天或账号、项目的变化。'),
+        make('p', 'vertex-paygo-cache-note', '逐字差异仅在同一后端进程、五分钟内有同范围成功参考请求时采集。正文只在有容量上限的短期内存中比较，账本保存位置和长度，不保存提示词正文。'),
         make('p', 'vertex-paygo-cache-note', coverageNotice || '记录范围为关联本地用量记录的 Google 代理请求。结构摘要保留长度、指纹和参数，不含提示词正文。'));
     const policyNote = make('p', 'vertex-paygo-cache-note', `隐式缓存门槛依据 ${CACHE_POLICY_REVIEWED_AT} 核对的官方文档；未列出的模型不推测门槛：`);
     policyNote.append(make('a', '', 'AI Studio', { href: CACHE_POLICY_URLS.makersuite, target: '_blank', rel: 'noopener noreferrer' }),
@@ -139,7 +154,8 @@ export function createCacheDiagnosticsViewer({ documentRef = globalThis.document
             if (usage.cacheField === 'missing' || usage.cacheField === 'omitted') warnings.push('未返回缓存计数，无法计算命中比例。');
             else if (usage.cacheField === 'mixed') warnings.push('部分子请求未返回缓存计数，汇总命中比例未知。');
             else if (usage.cacheField === 'invalid') warnings.push('缓存计数无效，无法计算命中比例。');
-            if (usage.partial) warnings.push('请求未成功完成，用量可能不完整。');
+            else if (usage.cacheField === 'default-zero') warnings.push('完整官方响应省略缓存零值，已按 Google 协议默认值记录为 0。');
+            if (usage.partial) warnings.push('用量记录不完整或存在无效字段，缓存结论可能不可靠。');
             warning.textContent = warnings.join(' '); warning.hidden = !warning.textContent;
             multi.textContent = current.googleRequestCount > 1 ? `包含 ${current.googleRequestCount} 个 Google 子请求；用量为汇总值，结构显示首个子请求。` : '';
             multi.hidden = !multi.textContent;
@@ -167,6 +183,29 @@ export function createCacheDiagnosticsViewer({ documentRef = globalThis.document
                 ? `${summary.captureKind === 'tauri-frontend' ? 'TT 前端请求结构；' : ''}系统指令：${summary.systemInstruction ? '有' : '无'}；消息：${number(summary.contentCount)} 块。顺序：${summary.contents.slice(0, 8).map(item => ROLE_LABELS[item?.role] ?? '未知身份').join(' → ')}${summary.contents.length > 8 || summary.omittedContents > 0 ? ' → …' : ''}。`
                 : '暂无请求结构摘要。';
             comparison.textContent = comparisonText(current.comparison);
+            const boundary = summary.cacheBoundary;
+            prefixStatus.textContent = boundary ? `历史来源边界已${boundary.status === 'split' ? '分段' : '独立'}：稳定区 ${number(boundary.stableTextChars)} 字符；历史从第 ${boundary.block} 块、第 ${boundary.part} 个部件开始。`
+                : '暂无可核验的历史来源边界；独立系统提示词仍可单独比较。';
+            const segments = [];
+            for (const part of summary.systemInstruction?.textSegments ?? []) segments.push({ block: '系统', ...part, area: '系统提示区' });
+            summary.contents?.forEach((content, index) => {
+                for (const part of content?.textSegments ?? []) segments.push({ block: index + 1, ...part,
+                    area: boundary ? index + 1 < boundary.block || index + 1 === boundary.block && part.part < boundary.part ? '历史前的稳定区' : '历史及后续区' : '未标记来源边界' });
+            });
+            segmentWrap.hidden = !segments.length;
+            segmentRows.replaceChildren(...segments.slice(0, 128).map(segment => {
+                const row = make('tr'); for (const value of [segment.block, segment.part, segment.area, number(segment.textChars)]) row.append(make('td', '', value)); return row;
+            }));
+            const rows = current.comparison?.status === 'compared' ? current.comparison.alignment ?? [] : [];
+            blockWrap.hidden = !rows.length; blockNote.hidden = !rows.length;
+            blockRows.replaceChildren(...rows.map(change => {
+                const row = make('tr');
+                const label = change.kind === 'same' ? '内容相同' : change.kind === 'changed' ? '内容或结构变化（位置比较）'
+                    : change.kind === 'unmatched-previous' ? '参考块未配对' : '本轮块未配对';
+                for (const value of [change.previous ?? '—', change.current ?? '—', label,
+                    `${number(change.previousChars)} → ${number(change.currentChars)}`]) row.append(make('td', '', value));
+                return row;
+            }));
             preview.textContent = summary.status === 'available' ? JSON.stringify(summary, null, 2)
                 : summary.reason === 'BODY_TOO_LARGE' ? '请求超过 2 MiB 观察上限，未记录结构摘要。'
                     : '暂无结构摘要。旧版记录或不支持的请求格式可能缺少此数据。';
