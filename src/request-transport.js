@@ -15,6 +15,7 @@ import { createGemini4SignatureTracker } from './gemini4-signatures.js';
 import { CACHE_BOUNDARY_FIELD, CACHE_BOUNDARY_STATUS_FIELD } from './cache-prefix-boundary.js';
 import { applySystemPromptPreference } from './system-prompt-settings.js';
 import { CACHE_WARM_FIELD } from './cache-warmer.js';
+import { isNativeRelayCustomAuth } from './native-custom-auth.js';
 
 const REQUEST_STATE = '__vertexPayGoRequestState';
 const GENERATE_PATH = '/api/backends/chat-completions/generate';
@@ -33,13 +34,17 @@ function nativeInspectionOverrides(data, inspection) {
     if (!fields || typeof fields !== 'object' || Array.isArray(fields)) return null;
     const keys = Object.keys(fields).sort();
     if (inspection.source === 'custom') {
-        if (JSON.stringify(keys) !== JSON.stringify(['custom_include_headers', 'custom_url'])
+        const hasAuth = data.custom_auth !== undefined;
+        const expected = hasAuth ? ['custom_auth', 'custom_include_headers', 'custom_url'] : ['custom_include_headers', 'custom_url'];
+        if (JSON.stringify(keys) !== JSON.stringify(expected)
+            || (hasAuth && !isNativeRelayCustomAuth(fields.custom_auth))
             || fields.custom_url !== url.toString() || typeof fields.custom_include_headers !== 'string') return null;
         let headers;
         try { headers = JSON.parse(fields.custom_include_headers); } catch { return null; }
         if (!headers || typeof headers !== 'object' || Array.isArray(headers) || Object.keys(headers).length !== 1
             || headers.Authorization !== 'Bearer ' + proxy.proxySecret) return null;
-        return { custom_url: url.toString(), custom_include_headers: fields.custom_include_headers };
+        return { custom_url: url.toString(), custom_include_headers: fields.custom_include_headers,
+            ...(hasAuth ? { custom_auth: fields.custom_auth } : {}) };
     }
     if (!['openai', 'claude'].includes(inspection.source)
         || JSON.stringify(keys) !== JSON.stringify(['proxy_password', 'reverse_proxy'])

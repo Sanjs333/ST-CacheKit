@@ -6,6 +6,7 @@ SillyTavern / Luker / TauriTavern 的提示词整理、缓存诊断与费用统�
 
 - 新安装默认开启世界书稳定排序，支持通过 `{{cache_green}}`、`{{cache_depth}}` 整理提示词。
 - 查看提示词来源、请求变化与缓存命中。
+- 提示词捕获默认开启，关闭查看窗口后仍会继续捕获。SillyTavern 1.19 的 Custom 绑定密钥需同步更新配套后端并重启酒馆；中转前仍由核心校验原 API 根地址。
 - 查看消息和对话费用估算，可选 Google 实际账单查询。
 - Google AI Studio / Vertex AI 的 Standard、Flex 层级切换，支持 Gemini 4 Hydrogen / Carbon / Argon。
 

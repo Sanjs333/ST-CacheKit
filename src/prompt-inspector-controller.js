@@ -10,7 +10,7 @@ const GOOGLE = new Set(['vertexai', 'makersuite']);
 const SOURCE_KINDS = new Set(['preset', 'character', 'persona', 'worldinfo-blue', 'worldinfo-green',
     'worldinfo-depth', 'worldinfo-other', 'author-note', 'memory', 'extension', 'history', 'input', 'unknown']);
 const NATIVE = new Set(['custom', 'openai', 'claude']);
-const NATIVE_REQUEST_FIELDS = ['reverse_proxy', 'proxy_password', 'secret_id', 'custom_url', 'custom_include_headers', 'custom_api_format'];
+const NATIVE_REQUEST_FIELDS = ['reverse_proxy', 'proxy_password', 'secret_id', 'custom_url', 'custom_include_headers', 'custom_api_format', 'custom_auth'];
 const FOREGROUND = new Set([undefined, null, '', 'normal', 'regenerate', 'swipe', 'continue', 'append', 'appendFinal']);
 const LIMIT = Object.freeze({ traceBytes: 1024 * 1024, frontendBytes: 2 * 1024 * 1024, sources: 256, stages: 6, events: 64, tickets: 8 });
 const FRONTEND_PROMPT_FIELDS = ['messages', 'tools', 'tool_choice', 'functions', 'function_call', 'json_schema',

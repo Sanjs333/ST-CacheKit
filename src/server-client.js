@@ -20,6 +20,7 @@ import {
     REQUIRED_TRANSPORT,
     SERVER_ROUTES,
 } from './constants.js';
+import { isNativeRelayCustomAuth } from './native-custom-auth.js';
 import { createLocalizer, localizeError } from './i18n.js';
 
 export class ServerPluginError extends Error {
@@ -67,10 +68,10 @@ export function parseLoopbackProxyUrl(value) {
 }
 
 const NATIVE_PREPARE_FIELDS = ['reverse_proxy', 'proxy_password', 'secret_id', 'custom_url',
-    'custom_include_headers', 'custom_api_format'];
+    'custom_include_headers', 'custom_api_format', 'custom_auth'];
 const NATIVE_SOURCES = new Set(['openai', 'claude', 'custom']);
 
-function validateNativePreparation(data, source) {
+function validateNativePreparation(data, source, hasCustomAuth = false) {
     const invalid = () => {
         const error = new ServerPluginError('后端插件返回了无效的原生请求准备信息。', { code: 'INVALID_NATIVE_PREPARE' });
         if (typeof data?.ticket === 'string' && /^[A-Za-z0-9_-]{16,128}$/u.test(data.ticket)) error.nativeTicket = data.ticket;
@@ -89,13 +90,16 @@ function validateNativePreparation(data, source) {
     const keys = Object.keys(fields).sort();
     let overrides;
     if (source === 'custom') {
-        if (JSON.stringify(keys) !== JSON.stringify(['custom_include_headers', 'custom_url'])
+        const expected = hasCustomAuth ? ['custom_auth', 'custom_include_headers', 'custom_url'] : ['custom_include_headers', 'custom_url'];
+        if (JSON.stringify(keys) !== JSON.stringify(expected)
+            || (hasCustomAuth && !isNativeRelayCustomAuth(fields.custom_auth))
             || fields.custom_url !== url.toString() || typeof fields.custom_include_headers !== 'string') invalid();
         let headers;
         try { headers = JSON.parse(fields.custom_include_headers); } catch { invalid(); }
         if (!headers || typeof headers !== 'object' || Array.isArray(headers) || Object.keys(headers).length !== 1
             || headers.Authorization !== 'Bearer ' + data.proxySecret) invalid();
-        overrides = { custom_url: url.toString(), custom_include_headers: fields.custom_include_headers };
+        overrides = { custom_url: url.toString(), custom_include_headers: fields.custom_include_headers,
+            ...(hasCustomAuth ? { custom_auth: fields.custom_auth } : {}) };
     } else {
         if (JSON.stringify(keys) !== JSON.stringify(['proxy_password', 'reverse_proxy'])
             || fields.reverse_proxy !== url.toString() || fields.proxy_password !== data.proxySecret) invalid();
@@ -466,7 +470,7 @@ export function createServerClient({ fetchImpl = globalThis.fetch, getRequestHea
                 method: 'POST', headers: { ...getRequestHeaders(), Accept: 'application/json', 'Content-Type': 'application/json' },
                 body: JSON.stringify(body), cache: 'no-store',
             }, 5000);
-            return validateNativePreparation(data, payload.source);
+            return validateNativePreparation(data, payload.source, payload.custom_auth !== undefined);
         },
         async cancelNativeRequest(ticket) {
             if (typeof ticket !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/u.test(ticket)) throw new TypeError('缺少原生请求转发凭证。');
